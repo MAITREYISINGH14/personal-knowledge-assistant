@@ -1,0 +1,507 @@
+{
+  "_readme": "Draft eval set for the PKA sample corpus. Questions marked in 'notes' were written from knowledge of the papers: check them against the PDFs. Temporal ground truth is in eval/version_changes.md.",
+  "questions": [
+    {
+      "id": "fact-001",
+      "type": "fact",
+      "question": "How much security deposit did I pay for the flat, and how soon do I get it back after moving out?",
+      "expected_answer": "₹84,000 (three months' fee), refunded within 30 days of vacating, minus unpaid dues and damage.",
+      "sources": [
+        {
+          "doc_id": "rental_agreement",
+          "section": "Security Deposit"
+        }
+      ]
+    },
+    {
+      "id": "fact-002",
+      "type": "fact",
+      "question": "What are the quiet hours in my housing society?",
+      "expected_answer": "10:30 pm to 7:00 am.",
+      "sources": [
+        {
+          "doc_id": "rental_agreement",
+          "section": "Use of Premises"
+        }
+      ]
+    },
+    {
+      "id": "fact-003",
+      "type": "fact",
+      "question": "What cost per acquisition is Brewbox aiming for?",
+      "expected_answer": "Under ₹330 per new subscriber.",
+      "sources": [
+        {
+          "doc_id": "q3_marketing_plan",
+          "section": "Measurement"
+        }
+      ]
+    },
+    {
+      "id": "fact-004",
+      "type": "fact",
+      "question": "What security rules do Northwind employees have to follow when working from home?",
+      "expected_answer": "Use the company VPN on every remote day, no public Wi-Fi for confidential work, and lock the screen when stepping away.",
+      "sources": [
+        {
+          "doc_id": "remote_work_policy",
+          "section": "Security"
+        }
+      ]
+    },
+    {
+      "id": "fact-005",
+      "type": "fact",
+      "question": "Can someone at Northwind work remotely from another country?",
+      "expected_answer": "No. Working from outside India is not permitted, for tax and data-protection reasons.",
+      "sources": [
+        {
+          "doc_id": "remote_work_policy",
+          "section": "Working Abroad"
+        }
+      ]
+    },
+    {
+      "id": "fact-006",
+      "type": "fact",
+      "question": "Which model am I using to find chunk boundaries, and which one for the final embeddings?",
+      "expected_answer": "all-MiniLM-L6-v2 for sentence-level boundary detection; bge-base-en for the final chunk embeddings.",
+      "sources": [
+        {
+          "doc_id": "embedding_models_comparison",
+          "section": "My plan"
+        }
+      ]
+    },
+    {
+      "id": "fact-007",
+      "type": "fact",
+      "question": "How many dimensions does bge-base-en produce?",
+      "expected_answer": "768.",
+      "sources": [
+        {
+          "doc_id": "embedding_models_comparison",
+          "section": ""
+        }
+      ]
+    },
+    {
+      "id": "fact-008",
+      "type": "fact",
+      "question": "How many pressure cooker whistles does my dal need?",
+      "expected_answer": "3 whistles, because the dal is soaked for 20 minutes first (otherwise 5).",
+      "sources": [
+        {
+          "doc_id": "recipe_dal_tadka",
+          "section": ""
+        }
+      ]
+    },
+    {
+      "id": "fact-009",
+      "type": "fact",
+      "question": "How much is the scooter rental in Goa?",
+      "expected_answer": "₹500 per day, arranged through the guesthouse.",
+      "sources": [
+        {
+          "doc_id": "travel_checklist_goa_dec",
+          "section": "Bookings"
+        }
+      ]
+    },
+    {
+      "id": "fact-010",
+      "type": "fact",
+      "question": "What percentile threshold was I using for chunk boundaries in the design review, and what did Rohan suggest?",
+      "expected_answer": "The 92nd percentile; Rohan suggested comparing 90 and 95 on the eval.",
+      "sources": [
+        {
+          "doc_id": "call_transcript_design_review_2026-11-03",
+          "section": ""
+        }
+      ]
+    },
+    {
+      "id": "fact-011",
+      "type": "fact",
+      "question": "How much faster is Sentence-BERT than plain BERT at finding the most similar pair in 10,000 sentences?",
+      "expected_answer": "From about 65 hours with BERT to about 5 seconds with SBERT.",
+      "sources": [
+        {
+          "doc_id": "sentence_bert_2019",
+          "section": ""
+        }
+      ],
+      "notes": "Verified against PDF."
+    },
+    {
+      "id": "fact-012",
+      "type": "fact",
+      "question": "How many attention heads does the base Transformer model use?",
+      "expected_answer": "8 heads, with a model dimension of 512.",
+      "sources": [
+        {
+          "doc_id": "attention_is_all_you_need_2017",
+          "section": ""
+        }
+      ],
+      "notes": "Verified against PDF."
+    },
+    {
+      "id": "fact-013",
+      "type": "fact",
+      "question": "What are the four core functions in the NIST AI Risk Management Framework?",
+      "expected_answer": "Govern, Map, Measure and Manage.",
+      "sources": [
+        {
+          "doc_id": "nist_ai_risk_management_framework",
+          "section": ""
+        }
+      ],
+      "notes": "Verified against PDF."
+    },
+    {
+      "id": "fact-014",
+      "type": "fact",
+      "question": "Where in a long prompt do language models make the best use of relevant information?",
+      "expected_answer": "At the beginning or the end of the context; performance drops when it sits in the middle.",
+      "sources": [
+        {
+          "doc_id": "lost_in_the_middle_2023",
+          "section": ""
+        }
+      ],
+      "notes": "Verified against PDF."
+    },
+    {
+      "id": "fact-015",
+      "type": "fact",
+      "question": "What are the two variants of the original RAG model and how do they differ?",
+      "expected_answer": "RAG-Sequence uses the same retrieved passages for the whole output; RAG-Token can use different passages for each generated token.",
+      "sources": [
+        {
+          "doc_id": "rag_original_lewis_2020",
+          "section": ""
+        }
+      ],
+      "notes": "Verified against PDF."
+    },
+    {
+      "id": "overview-001",
+      "type": "overview",
+      "question": "What is the main idea of the RAPTOR paper?",
+      "expected_answer": "Build a tree by recursively clustering text chunks and summarising each cluster, then retrieve across tree levels, which helps questions that need broad or multi-part context.",
+      "sources": [
+        {
+          "doc_id": "raptor_tree_retrieval_2024",
+          "section": ""
+        }
+      ],
+      "notes": "Verified against PDF."
+    },
+    {
+      "id": "overview-002",
+      "type": "overview",
+      "question": "How is the big survey of large language models organised?",
+      "expected_answer": "Around pre-training, adaptation (instruction tuning and alignment), utilisation (prompting, in-context learning, chain of thought) and capacity evaluation, plus resources.",
+      "sources": [
+        {
+          "doc_id": "survey_of_large_language_models",
+          "section": ""
+        }
+      ],
+      "notes": "Verified against PDF."
+    },
+    {
+      "id": "overview-003",
+      "type": "overview",
+      "question": "How does the Gao et al. survey categorise RAG systems?",
+      "expected_answer": "Into Naive RAG, Advanced RAG and Modular RAG, and it reviews retrieval, generation, augmentation and evaluation.",
+      "sources": [
+        {
+          "doc_id": "rag_survey_gao_2023",
+          "section": ""
+        }
+      ],
+      "notes": "Verified against PDF."
+    },
+    {
+      "id": "overview-004",
+      "type": "overview",
+      "question": "What does the NIST Generative AI Profile cover overall?",
+      "expected_answer": "Risks that generative AI creates or worsens (such as confabulation, information integrity, privacy, harmful bias and IP) and suggested actions mapped onto the AI RMF functions.",
+      "sources": [
+        {
+          "doc_id": "nist_generative_ai_profile",
+          "section": ""
+        }
+      ],
+      "notes": "Verified against PDF."
+    },
+    {
+      "id": "overview-005",
+      "type": "overview",
+      "question": "What themes keep coming up across my PKA meetings, the design-review call and my brain-dump?",
+      "expected_answer": "Structure-first chunking with semantic splitting only where needed; the move to Qdrant and bge-base-en; honest evaluation reported per document type; keeping summarisation cost down; and Rohan's reranker notes.",
+      "sources": [
+        {
+          "doc_id": "meeting_notes_2026-10-06_pka_kickoff",
+          "section": ""
+        },
+        {
+          "doc_id": "meeting_notes_2026-10-20_pka_review",
+          "section": ""
+        },
+        {
+          "doc_id": "call_transcript_design_review_2026-11-03",
+          "section": ""
+        },
+        {
+          "doc_id": "brain_dump_pka_ideas",
+          "section": ""
+        }
+      ]
+    },
+    {
+      "id": "overview-006",
+      "type": "overview",
+      "question": "How has my thinking on chunk boundaries developed over time?",
+      "expected_answer": "From plain semantic splitting to headings and clauses as hard boundaries, a continuity penalty for connective sentences, windowed comparisons, testing several percentile thresholds, and keeping short notes as single chunks.",
+      "sources": [
+        {
+          "doc_id": "idea_chunk_boundary_heuristics",
+          "section": ""
+        },
+        {
+          "doc_id": "call_transcript_design_review_2026-11-03",
+          "section": ""
+        },
+        {
+          "doc_id": "brain_dump_pka_ideas",
+          "section": ""
+        }
+      ]
+    },
+    {
+      "id": "overview-007",
+      "type": "overview",
+      "question": "What are my main obligations as the tenant under the rental agreement?",
+      "expected_answer": "Pay the fee on time, pay utilities, use the flat only as a residence without subletting, handle my share of repairs, follow society rules, give written notice and return the flat in good condition.",
+      "sources": [
+        {
+          "doc_id": "rental_agreement",
+          "section": ""
+        }
+      ]
+    },
+    {
+      "id": "overview-008",
+      "type": "overview",
+      "question": "Summarise Brewbox's Q3 marketing strategy.",
+      "expected_answer": "Launch the Single Origin Club tier, drive sign-ups mainly through paid social plus search, measure cost per acquisition and retention, and shift budget monthly based on results.",
+      "sources": [
+        {
+          "doc_id": "q3_marketing_plan",
+          "section": ""
+        }
+      ]
+    },
+    {
+      "id": "overview-009",
+      "type": "overview",
+      "question": "What have I read so far for this project and what's still on my list?",
+      "expected_answer": "Read: the RAG paper and Sentence-BERT. Skimmed: DPR and Lost in the Middle. To read: RAPTOR (top priority for Phase 4), the Gao survey and the NIST AI RMF.",
+      "sources": [
+        {
+          "doc_id": "reading_list_retrieval",
+          "section": ""
+        }
+      ]
+    },
+    {
+      "id": "overview-010",
+      "type": "overview",
+      "question": "How do Dense Passage Retrieval and the original RAG paper each use retrieval?",
+      "expected_answer": "DPR trains a dual-encoder retriever that beats BM25 for open-domain QA; RAG pairs a DPR-style retriever with a BART generator and trains them together for generation.",
+      "sources": [
+        {
+          "doc_id": "dense_passage_retrieval_2020",
+          "section": ""
+        },
+        {
+          "doc_id": "rag_original_lewis_2020",
+          "section": ""
+        }
+      ],
+      "notes": "Verified against PDF."
+    },
+    {
+      "id": "temporal-001",
+      "type": "temporal",
+      "question": "What is my monthly rent now?",
+      "expected_answer": "₹30,240 per month.",
+      "sources": [
+        {
+          "doc_id": "rental_agreement",
+          "section": "Licence Fee",
+          "version": 2
+        }
+      ],
+      "temporal_kind": "current"
+    },
+    {
+      "id": "temporal-002",
+      "type": "temporal",
+      "question": "What was my rent in June 2026?",
+      "expected_answer": "₹28,000 per month.",
+      "sources": [
+        {
+          "doc_id": "rental_agreement",
+          "section": "Licence Fee",
+          "version": 1
+        }
+      ],
+      "temporal_kind": "as_of",
+      "as_of": "2026-06-30"
+    },
+    {
+      "id": "temporal-003",
+      "type": "temporal",
+      "question": "How did the rule on who pays for repairs change in the renewed agreement?",
+      "expected_answer": "The minor-versus-major split was replaced by a cost threshold: I pay for any repair under ₹2,000, the owner pays for ₹2,000 or more unless I caused the damage, and a quote is needed first.",
+      "sources": [
+        {
+          "doc_id": "rental_agreement",
+          "section": "Repairs",
+          "version": 1
+        },
+        {
+          "doc_id": "rental_agreement",
+          "section": "Repairs",
+          "version": 2
+        }
+      ],
+      "temporal_kind": "change"
+    },
+    {
+      "id": "temporal-004",
+      "type": "temporal",
+      "question": "What changed overall when the rental agreement was renewed?",
+      "expected_answer": "New term Dec 2026–Oct 2027; rent ₹28,000 to ₹30,240; late fee ₹500 to ₹750 a day; parking clause removed and a pets clause added; repairs rule rewritten; notice one month to two months; renewal cap 5% to 8%.",
+      "sources": [
+        {
+          "doc_id": "rental_agreement",
+          "section": "",
+          "version": 1
+        },
+        {
+          "doc_id": "rental_agreement",
+          "section": "",
+          "version": 2
+        }
+      ],
+      "temporal_kind": "change"
+    },
+    {
+      "id": "temporal-005",
+      "type": "temporal",
+      "question": "How many days a week can Northwind employees work from home?",
+      "expected_answer": "Up to three days a week.",
+      "sources": [
+        {
+          "doc_id": "remote_work_policy",
+          "section": "Remote Work Allowance",
+          "version": 2
+        }
+      ],
+      "temporal_kind": "current"
+    },
+    {
+      "id": "temporal-006",
+      "type": "temporal",
+      "question": "What was the Northwind internet allowance in July 2026?",
+      "expected_answer": "₹1,000 per month.",
+      "sources": [
+        {
+          "doc_id": "remote_work_policy",
+          "section": "Internet",
+          "version": 1
+        }
+      ],
+      "temporal_kind": "as_of",
+      "as_of": "2026-07-15"
+    },
+    {
+      "id": "temporal-007",
+      "type": "temporal",
+      "question": "What happened to the rule about being in the office on Fridays?",
+      "expected_answer": "It was removed in the October 2026 policy and replaced by core hours of 11:00 to 16:00 IST.",
+      "sources": [
+        {
+          "doc_id": "remote_work_policy",
+          "section": "Office Days",
+          "version": 1
+        },
+        {
+          "doc_id": "remote_work_policy",
+          "section": "Core Hours",
+          "version": 2
+        }
+      ],
+      "temporal_kind": "change"
+    },
+    {
+      "id": "temporal-008",
+      "type": "temporal",
+      "question": "What was the Q3 marketing budget and its split as of the end of July?",
+      "expected_answer": "₹4,00,000: paid social 60%, search 25%, influencers 15%.",
+      "sources": [
+        {
+          "doc_id": "q3_marketing_plan",
+          "section": "Budget",
+          "version": 1
+        }
+      ],
+      "temporal_kind": "as_of",
+      "as_of": "2026-07-31"
+    },
+    {
+      "id": "temporal-009",
+      "type": "temporal",
+      "question": "How and why did the Q3 marketing plan change mid-quarter?",
+      "expected_answer": "Budget cut to ₹3,20,000, target lowered to 1,000 after a slow July, launch moved to 1 August due to a packaging delay, and influencers replaced by webinars and email because creator codes converted poorly.",
+      "sources": [
+        {
+          "doc_id": "q3_marketing_plan",
+          "section": "",
+          "version": 1
+        },
+        {
+          "doc_id": "q3_marketing_plan",
+          "section": "",
+          "version": 2
+        }
+      ],
+      "temporal_kind": "change"
+    },
+    {
+      "id": "temporal-010",
+      "type": "temporal",
+      "question": "What changed between the draft and the approved PKA proposal?",
+      "expected_answer": "MiniLM and Chroma became bge-base-en and Qdrant; 10 weeks became 12; budget ₹3,000 to ₹5,000 a month; target hit@5 0.80 to 0.85; the mobile-app stretch goal was dropped and a Risks section added.",
+      "sources": [
+        {
+          "doc_id": "pka_project_proposal",
+          "section": "",
+          "version": 1
+        },
+        {
+          "doc_id": "pka_project_proposal",
+          "section": "",
+          "version": 2
+        }
+      ],
+      "temporal_kind": "change"
+    }
+  ]
+}

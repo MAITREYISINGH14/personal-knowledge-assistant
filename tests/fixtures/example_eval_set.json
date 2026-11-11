@@ -1,0 +1,53 @@
+{
+  "_readme": "Replace these example questions with ones written against YOUR corpus. doc_id = file name without extension and without the __vN suffix. section = a substring of the heading path where the answer lives (leave empty if unsure). Temporal questions must give a version on every source.",
+  "questions": [
+    {
+      "id": "fact-001",
+      "type": "fact",
+      "question": "What is the notice period for ending the rental agreement?",
+      "expected_answer": "Two months' written notice.",
+      "sources": [{"doc_id": "rental_agreement", "section": "Termination", "version": 2}]
+    },
+    {
+      "id": "fact-002",
+      "type": "fact",
+      "question": "Which embedding model did I shortlist in my RAG research notes?",
+      "expected_answer": "bge-base-en, with all-MiniLM-L6-v2 as the fast fallback.",
+      "sources": [{"doc_id": "rag_research_notes", "section": "Embeddings"}]
+    },
+    {
+      "id": "overview-001",
+      "type": "overview",
+      "question": "Summarize the main argument of the market research report.",
+      "expected_answer": "Demand is moving online, incumbents are slow to adapt, and distribution partnerships are the main competitive advantage.",
+      "sources": [{"doc_id": "market_research_report"}]
+    },
+    {
+      "id": "overview-002",
+      "type": "overview",
+      "question": "What are the recurring themes across my meeting notes?",
+      "expected_answer": "Hiring delays, vendor turnaround times and the marketing budget.",
+      "sources": [{"doc_id": "meeting_notes_oct"}, {"doc_id": "meeting_notes_nov"}]
+    },
+    {
+      "id": "temporal-001",
+      "type": "temporal",
+      "temporal_kind": "change",
+      "question": "What changed in the rental agreement between the first and second versions?",
+      "expected_answer": "Rent rose 8% and the notice period went from one month to two months.",
+      "sources": [
+        {"doc_id": "rental_agreement", "section": "Rent", "version": 1},
+        {"doc_id": "rental_agreement", "section": "Rent", "version": 2}
+      ]
+    },
+    {
+      "id": "temporal-002",
+      "type": "temporal",
+      "temporal_kind": "as_of",
+      "as_of": "2026-06-30",
+      "question": "What was the Q3 marketing budget according to the plan as of June?",
+      "expected_answer": "₹4 lakh, mostly paid social.",
+      "sources": [{"doc_id": "q3_plan", "section": "Marketing", "version": 1}]
+    }
+  ]
+}

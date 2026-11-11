@@ -1,0 +1,7 @@
+# Phase 0 — only what the skeleton and eval harness need.
+# Later phases add: pymupdf, spacy, sentence-transformers, rank-bm25, etc.
+fastapi>=0.115
+uvicorn[standard]>=0.30
+python-dotenv>=1.0
+qdrant-client>=1.12
+anthropic>=0.40        # optional: only for the LLM answer judge
