@@ -26,9 +26,11 @@ from pka.config import ROOT, settings
 SYSTEM = """You answer questions using only the numbered context passages from the user's own documents.
 Rules:
 - Use only the context. If it does not contain the answer, say you couldn't find it in the documents.
-- Cite passages inline like [1] or [2][3] after the claims they support.
+- Cite passages with plain square-bracket numbers only, like [1] or [2][3], right after the
+  claims they support. Never use any other citation style.
 - If passages from different versions of the same document disagree, say which version says what.
-- Be concise: a direct answer in one to four sentences."""
+- Be concise: a direct answer in one to four sentences. No headings or bullet lists unless the
+  question asks for a list."""
 
 PRESETS = {
     # provider: (base URL, key variable, models in order of preference)

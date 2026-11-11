@@ -12,10 +12,16 @@ from pka.llm import chat
 PROMPT = """You are grading a question-answering system.
 
 Question: {question}
-Expected answer: {expected}
+Reference answer: {expected}
 System answer: {answer}
 
-Grade the system answer on factual agreement with the expected answer, ignoring wording and citations.
+Grade whether the system answer correctly answers THE QUESTION, using the reference answer as the
+source of truth for the facts.
+- "correct": it states the facts the question asks for, and nothing it states contradicts the
+  reference. Extra details in the reference that the question did not ask for are optional.
+- "partial": it gets some of what the question asks for but misses or gets wrong another part.
+- "incorrect": the key facts are wrong or missing, or it says it couldn't find the answer.
+Ignore wording, formatting and citation style.
 Reply with JSON only: {{"verdict": "correct" | "partial" | "incorrect", "reason": "<one sentence>"}}"""
 
 SCORES = {"correct": 1.0, "partial": 0.5, "incorrect": 0.0}

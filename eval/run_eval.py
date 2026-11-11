@@ -136,13 +136,18 @@ def main():
         judge = Judge()
 
     can_cache = hasattr(system, "retrieve") and hasattr(system, "generate")
+    # Changing a prompt must invalidate cached answers/grades made with the old one.
+    from pka.llm import SYSTEM as ANSWER_PROMPT
+    judge_prompt = ""
+    if judge:
+        from eval.judge import PROMPT as judge_prompt
     rows, errors, stopped = [], 0, None
     for i, q in enumerate(questions, 1):
         t0 = time.perf_counter()
         try:
             if can_cache:
                 retrieved = system.retrieve(q.question, q.as_of)
-                akey = Cache.key("answer", q.question, *[c.text for c in retrieved[:args.k]])
+                akey = Cache.key("answer", ANSWER_PROMPT, q.question, *[c.text for c in retrieved[:args.k]])
                 cached = cache.get(akey)
                 if cached is None:
                     answer = system.generate(q.question, retrieved)
@@ -159,7 +164,7 @@ def main():
                                   "level": c.level} for c in retrieved[:args.k]],
                    **score_retrieval(q, retrieved, args.k)}
             if judge:
-                jkey = Cache.key("judge", q.question, q.expected_answer, answer)
+                jkey = Cache.key("judge", judge_prompt, q.question, q.expected_answer, answer)
                 grade = cache.get(jkey)
                 if grade is None:
                     grade = judge.grade(q.question, q.expected_answer, answer)

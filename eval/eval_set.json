@@ -9,7 +9,10 @@
       "sources": [
         {
           "doc_id": "rental_agreement",
-          "section": "Security Deposit"
+          "section": "Security Deposit",
+          "evidence": [
+            "₹84,000"
+          ]
         }
       ]
     },
@@ -21,7 +24,10 @@
       "sources": [
         {
           "doc_id": "rental_agreement",
-          "section": "Use of Premises"
+          "section": "Use of Premises",
+          "evidence": [
+            "10:30 pm"
+          ]
         }
       ]
     },
@@ -33,7 +39,10 @@
       "sources": [
         {
           "doc_id": "q3_marketing_plan",
-          "section": "Measurement"
+          "section": "Measurement",
+          "evidence": [
+            "under ₹330"
+          ]
         }
       ]
     },
@@ -45,7 +54,10 @@
       "sources": [
         {
           "doc_id": "remote_work_policy",
-          "section": "Security"
+          "section": "Security",
+          "evidence": [
+            "company VPN"
+          ]
         }
       ]
     },
@@ -57,7 +69,10 @@
       "sources": [
         {
           "doc_id": "remote_work_policy",
-          "section": "Working Abroad"
+          "section": "Working Abroad",
+          "evidence": [
+            "outside India"
+          ]
         }
       ]
     },
@@ -69,7 +84,10 @@
       "sources": [
         {
           "doc_id": "embedding_models_comparison",
-          "section": "My plan"
+          "section": "My plan",
+          "evidence": [
+            "boundary detection"
+          ]
         }
       ]
     },
@@ -81,7 +99,10 @@
       "sources": [
         {
           "doc_id": "embedding_models_comparison",
-          "section": ""
+          "section": "",
+          "evidence": [
+            "768"
+          ]
         }
       ]
     },
@@ -93,7 +114,10 @@
       "sources": [
         {
           "doc_id": "recipe_dal_tadka",
-          "section": ""
+          "section": "",
+          "evidence": [
+            "3 whistles"
+          ]
         }
       ]
     },
@@ -105,7 +129,10 @@
       "sources": [
         {
           "doc_id": "travel_checklist_goa_dec",
-          "section": "Bookings"
+          "section": "Bookings",
+          "evidence": [
+            "₹500 per day"
+          ]
         }
       ]
     },
@@ -117,7 +144,10 @@
       "sources": [
         {
           "doc_id": "call_transcript_design_review_2026-11-03",
-          "section": ""
+          "section": "",
+          "evidence": [
+            "92nd percentile"
+          ]
         }
       ]
     },
@@ -129,7 +159,10 @@
       "sources": [
         {
           "doc_id": "sentence_bert_2019",
-          "section": ""
+          "section": "",
+          "evidence": [
+            "65 hours"
+          ]
         }
       ],
       "notes": "Verified against PDF."
@@ -142,7 +175,12 @@
       "sources": [
         {
           "doc_id": "attention_is_all_you_need_2017",
-          "section": ""
+          "section": "",
+          "evidence": [
+            "h = 8",
+            "h=8",
+            "8 parallel attention"
+          ]
         }
       ],
       "notes": "Verified against PDF."
@@ -155,7 +193,12 @@
       "sources": [
         {
           "doc_id": "nist_ai_risk_management_framework",
-          "section": ""
+          "section": "",
+          "evidence": [
+            "govern, map, measure",
+            "map, measure, and manage",
+            "map, measure and manage"
+          ]
         }
       ],
       "notes": "Verified against PDF."
@@ -168,7 +211,10 @@
       "sources": [
         {
           "doc_id": "lost_in_the_middle_2023",
-          "section": ""
+          "section": "",
+          "evidence": [
+            "beginning or end"
+          ]
         }
       ],
       "notes": "Verified against PDF."
@@ -181,7 +227,10 @@
       "sources": [
         {
           "doc_id": "rag_original_lewis_2020",
-          "section": ""
+          "section": "",
+          "evidence": [
+            "RAG-Sequence"
+          ]
         }
       ],
       "notes": "Verified against PDF."
@@ -344,7 +393,10 @@
         {
           "doc_id": "rental_agreement",
           "section": "Licence Fee",
-          "version": 2
+          "version": 2,
+          "evidence": [
+            "₹30,240"
+          ]
         }
       ],
       "temporal_kind": "current"
@@ -358,7 +410,10 @@
         {
           "doc_id": "rental_agreement",
           "section": "Licence Fee",
-          "version": 1
+          "version": 1,
+          "evidence": [
+            "₹28,000"
+          ]
         }
       ],
       "temporal_kind": "as_of",
@@ -373,12 +428,18 @@
         {
           "doc_id": "rental_agreement",
           "section": "Repairs",
-          "version": 1
+          "version": 1,
+          "evidence": [
+            "Minor day-to-day repairs"
+          ]
         },
         {
           "doc_id": "rental_agreement",
           "section": "Repairs",
-          "version": 2
+          "version": 2,
+          "evidence": [
+            "less than ₹2,000"
+          ]
         }
       ],
       "temporal_kind": "change"
@@ -411,7 +472,10 @@
         {
           "doc_id": "remote_work_policy",
           "section": "Remote Work Allowance",
-          "version": 2
+          "version": 2,
+          "evidence": [
+            "up to three days"
+          ]
         }
       ],
       "temporal_kind": "current"
@@ -425,7 +489,10 @@
         {
           "doc_id": "remote_work_policy",
           "section": "Internet",
-          "version": 1
+          "version": 1,
+          "evidence": [
+            "₹1,000 per month"
+          ]
         }
       ],
       "temporal_kind": "as_of",
@@ -440,12 +507,18 @@
         {
           "doc_id": "remote_work_policy",
           "section": "Office Days",
-          "version": 1
+          "version": 1,
+          "evidence": [
+            "Fridays"
+          ]
         },
         {
           "doc_id": "remote_work_policy",
           "section": "Core Hours",
-          "version": 2
+          "version": 2,
+          "evidence": [
+            "11:00 and 16:00"
+          ]
         }
       ],
       "temporal_kind": "change"
@@ -459,7 +532,10 @@
         {
           "doc_id": "q3_marketing_plan",
           "section": "Budget",
-          "version": 1
+          "version": 1,
+          "evidence": [
+            "₹4,00,000"
+          ]
         }
       ],
       "temporal_kind": "as_of",

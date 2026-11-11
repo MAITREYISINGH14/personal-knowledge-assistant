@@ -157,3 +157,19 @@ class TestEvalResume(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestEvidence(unittest.TestCase):
+    def test_evidence_required_for_hit(self):
+        from eval.metrics import score_retrieval
+        from eval.schema import Question, Source
+        from pka.interfaces import RetrievedChunk
+        q = Question("x", "fact", "q", "a", [Source("doc", "", None, ["92nd percentile"])])
+        wrong = RetrievedChunk("doc", "we used the 90th to 95th range")
+        right = RetrievedChunk("doc", "ME: 92nd   Percentile right now")
+        self.assertFalse(score_retrieval(q, [wrong], 5)["hit"])
+        self.assertEqual(score_retrieval(q, [wrong, right], 5)["rr"], 0.5)
+
+    def test_dash_normalisation(self):
+        from eval.metrics import has_evidence
+        self.assertTrue(has_evidence("RAG\u2011Sequence model", ["RAG-Sequence"]))

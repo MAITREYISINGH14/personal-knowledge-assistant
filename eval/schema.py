@@ -14,6 +14,7 @@ class Source:
     doc_id: str
     section: str = ""              # substring of the expected breadcrumb; "" = any
     version: Optional[int] = None  # required for temporal questions
+    evidence: list = field(default_factory=list)  # phrases; a matching chunk must contain one
 
 
 @dataclass
@@ -44,7 +45,10 @@ def _parse_question(raw: dict, idx: int) -> Question:
     for s in raw["sources"]:
         if not s.get("doc_id"):
             raise EvalSetError(f"{where}: every source needs a doc_id")
-        sources.append(Source(s["doc_id"], s.get("section", ""), s.get("version")))
+        ev = s.get("evidence", [])
+        if isinstance(ev, str):
+            ev = [ev]
+        sources.append(Source(s["doc_id"], s.get("section", ""), s.get("version"), list(ev)))
 
     q = Question(
         id=raw["id"], type=raw["type"], question=raw["question"],
