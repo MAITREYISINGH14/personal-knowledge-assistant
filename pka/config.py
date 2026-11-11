@@ -46,5 +46,15 @@ class Settings:
     baseline_overlap_words: int = 20
     top_k: int = 5
 
+    # Phase 2 semantic chunking
+    semantic_collection: str = "pka_semantic"
+    semantic_embed_model: str = os.getenv("SEMANTIC_EMBED_MODEL", "BAAI/bge-base-en-v1.5")
+    semantic_query_prefix: str = "Represent this sentence for searching relevant passages: "
+    boundary_model: str = os.getenv("BOUNDARY_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
+    chunk_max_tokens: int = int(os.getenv("CHUNK_MAX_TOKENS", "400"))
+    chunk_min_tokens: int = int(os.getenv("CHUNK_MIN_TOKENS", "80"))
+    chunk_percentile: float = float(os.getenv("CHUNK_PERCENTILE", "92"))
+    chunk_window: int = int(os.getenv("CHUNK_WINDOW", "2"))
+
 
 settings = Settings()

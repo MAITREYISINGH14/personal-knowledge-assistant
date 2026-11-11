@@ -10,20 +10,24 @@ from pka.interfaces import QAResult, RetrievedChunk
 
 class BaselineSystem:
     name = "baseline"
+    collection = settings.baseline_collection
+    embed_model = settings.embed_model
+    query_prefix = ""
+    ingest_hint = "python -m pka.ingest --reset"
 
     def __init__(self, k: Optional[int] = None, use_llm: Optional[bool] = None):
         from pka.embeddings import Embedder
         from pka.storage.vectors import VectorStore
         self.k = k or settings.top_k
-        self.embedder = Embedder(settings.embed_model)
-        self.store = VectorStore(settings.qdrant_url, settings.baseline_collection, dim=0)
+        self.embedder = Embedder(self.embed_model)
+        self.store = VectorStore(settings.qdrant_url, self.collection, dim=0)
         try:
-            exists = self.store.client.collection_exists(settings.baseline_collection)
+            exists = self.store.client.collection_exists(self.collection)
         except Exception as e:
             raise RuntimeError("Can't reach Qdrant. Open Docker Desktop, wait for 'Engine running', "
                                "then run: docker compose up -d") from e
         if not exists:
-            raise RuntimeError("No baseline index found. Run: python -m pka.ingest")
+            raise RuntimeError(f"No '{self.name}' index found. Run: {self.ingest_hint}")
         self.use_llm = (settings.llm_provider != "none") if use_llm is None else use_llm
         self.answerer = None
         if self.use_llm:
@@ -31,7 +35,7 @@ class BaselineSystem:
             self.answerer = Answerer()
 
     def retrieve(self, question: str, as_of: Optional[str] = None):
-        vec = self.embedder.embed([question])[0]
+        vec = self.embedder.embed([question], prefix=self.query_prefix)[0]
         return [RetrievedChunk(doc_id=p.payload["doc_id"], text=p.payload["text"],
                                section=p.payload.get("section", ""),
                                version=p.payload.get("version"), level=0, score=p.score)

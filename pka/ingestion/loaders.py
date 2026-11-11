@@ -32,6 +32,7 @@ class Document:
     doc_date: Optional[str]        # date stated inside the document, if any
     file_mtime: str
     blocks: list = field(default_factory=list)
+    versioned: bool = False        # file name carries a __vN suffix
 
     @property
     def text(self) -> str:
@@ -120,6 +121,10 @@ def load_file(path: Path) -> Document:
         raw = data.decode("utf-8", errors="replace")
         blocks, title = parse_markdown(raw) if suffix == ".md" else parse_text(raw)
         header = raw
+        if suffix == ".txt" and not title:           # a short first line works as a title
+            first = raw.strip().splitlines()[0].strip() if raw.strip() else ""
+            if 0 < len(first) <= 80:
+                title = first
     doc_id, version = parse_name(path.stem)
     mtime = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc).isoformat()
     return Document(
@@ -127,6 +132,7 @@ def load_file(path: Path) -> Document:
         sha256=hashlib.sha256(data).hexdigest(),
         title=title or doc_id.replace("_", " "),
         doc_date=parse_doc_date(header), file_mtime=mtime, blocks=blocks,
+        versioned=bool(VERSION_RE.match(path.stem)),
     )
 
 

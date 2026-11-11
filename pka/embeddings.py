@@ -40,7 +40,12 @@ class Embedder:
     def count_tokens(self, text: str) -> int:
         return len(self.model.tokenizer.tokenize(text))
 
-    def embed(self, texts, show_progress: bool = False):
-        vecs = self.model.encode(list(texts), batch_size=32, normalize_embeddings=True,
+    def count_tokens_batch(self, texts) -> list:
+        ids = self.model.tokenizer(list(texts), add_special_tokens=False)["input_ids"]
+        return [len(x) for x in ids]
+
+    def embed(self, texts, show_progress: bool = False, prefix: str = ""):
+        texts = [prefix + t for t in texts] if prefix else list(texts)
+        vecs = self.model.encode(texts, batch_size=32, normalize_embeddings=True,
                                  show_progress_bar=show_progress)
         return [v.tolist() for v in vecs]

@@ -28,6 +28,13 @@ CREATE TABLE IF NOT EXISTS chunks (
     n_tokens    INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_chunks_doc ON chunks (collection, doc_id, version);
+CREATE TABLE IF NOT EXISTS ingested (     -- what each index was built from
+    collection TEXT NOT NULL,
+    doc_id     TEXT NOT NULL,
+    version    INTEGER NOT NULL,
+    sha256     TEXT NOT NULL,
+    PRIMARY KEY (collection, doc_id, version)
+);
 """
 
 
@@ -40,12 +47,13 @@ class MetadataStore:
 
     def reset(self, collection: str):
         self.conn.execute("DELETE FROM chunks WHERE collection = ?", (collection,))
-        self.conn.execute("DELETE FROM documents")
+        self.conn.execute("DELETE FROM ingested WHERE collection = ?", (collection,))
         self.conn.commit()
 
-    def stored_hash(self, doc_id: str, version: int):
-        row = self.conn.execute("SELECT sha256 FROM documents WHERE doc_id=? AND version=?",
-                                (doc_id, version)).fetchone()
+    def stored_hash(self, doc_id: str, version: int, collection: str):
+        row = self.conn.execute(
+            "SELECT sha256 FROM ingested WHERE collection=? AND doc_id=? AND version=?",
+            (collection, doc_id, version)).fetchone()
         return row["sha256"] if row else None
 
     def save_document(self, doc, collection: str, chunk_rows: list):
@@ -57,13 +65,16 @@ class MetadataStore:
                 "INSERT INTO chunks VALUES (?,?,?,?,?,?,?,?,?)",
                 [(r["chunk_id"], collection, doc.doc_id, doc.version, r["chunk_index"],
                   r["section"], r["text"], r["n_words"], r["n_tokens"]) for r in chunk_rows])
+            self.conn.execute("INSERT OR REPLACE INTO ingested VALUES (?,?,?,?)",
+                              (collection, doc.doc_id, doc.version, doc.sha256))
             self.conn.execute(
                 "INSERT OR REPLACE INTO documents VALUES (?,?,?,?,?,?,?,?,?)",
                 (doc.doc_id, doc.version, str(doc.path), doc.sha256, doc.title,
                  doc.doc_date, doc.file_mtime, now, len(chunk_rows)))
 
     def counts(self, collection: str):
-        docs = self.conn.execute("SELECT COUNT(*) FROM documents").fetchone()[0]
+        docs = self.conn.execute("SELECT COUNT(*) FROM ingested WHERE collection=?",
+                                 (collection,)).fetchone()[0]
         chunks = self.conn.execute("SELECT COUNT(*) FROM chunks WHERE collection=?",
                                    (collection,)).fetchone()[0]
         return docs, chunks

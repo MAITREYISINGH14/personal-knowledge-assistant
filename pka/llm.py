@@ -93,6 +93,7 @@ def _post_json(url: str, payload: dict, headers: dict = None, retries: int = 8) 
             return _request(url, payload, headers)
         except urllib.error.HTTPError as e:
             body = e.read().decode(errors="replace")[:400]
+            e.close()
             low = body.lower()
             if e.code == 429:
                 retry_after = float(e.headers.get("Retry-After") or 0)
