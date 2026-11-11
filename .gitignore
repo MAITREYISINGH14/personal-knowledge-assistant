@@ -7,3 +7,5 @@ data/corpus/*
 !data/corpus/README.md
 eval/reports/*
 !eval/reports/.gitkeep
+eval/cache/
+data/llm_model.json

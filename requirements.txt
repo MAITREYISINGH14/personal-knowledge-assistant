@@ -1,7 +1,11 @@
-# Phase 0 — only what the skeleton and eval harness need.
-# Later phases add: pymupdf, spacy, sentence-transformers, rank-bm25, etc.
+# Phase 0
 fastapi>=0.115
 uvicorn[standard]>=0.30
 python-dotenv>=1.0
-qdrant-client>=1.12
-anthropic>=0.40        # optional: only for the LLM answer judge
+qdrant-client>=1.12,<1.13   # matches the Qdrant server version in docker-compose.yml
+anthropic>=0.40
+
+# Phase 1
+sentence-transformers>=3.0  # pulls in PyTorch; the first install is large
+pymupdf>=1.24               # PDF text extraction
+certifi                     # SSL certificates for API calls (needed on python.org Pythons on macOS)
