@@ -14,6 +14,7 @@ Runs automatically after `python -m pka.ingest --chunker semantic`, or by hand:
 import argparse
 import difflib
 import hashlib
+import re
 import sqlite3
 from collections import defaultdict
 from datetime import date, datetime
@@ -75,6 +76,25 @@ def word_diff(old: str, new: str, max_ops: int = 5) -> str:
     return "; ".join(parts)
 
 
+def _section_names(section: str):
+    names = set()
+    for part in (section or "").split(" | "):
+        name = part.split(" > ")[-1].strip().lower()
+        name = re.sub(r"^\d+[.)]\s*", "", name)          # "7. Parking" -> "parking"
+        if name and not name.startswith("p."):
+            names.add(name)
+    return names
+
+
+def same_passage(a, b) -> bool:
+    """Embeddings alone over-match: chunks of one document share a header and vocabulary.
+    Require a shared section name, or genuine word overlap between the two texts."""
+    if _section_names(a["section"]) & _section_names(b["section"]):
+        return True
+    ratio = difflib.SequenceMatcher(a=a["text"].split(), b=b["text"].split(), autojunk=False).ratio()
+    return ratio >= 0.5
+
+
 def diff_chunks(old, new):
     """old/new: lists of dicts with id, text, section, vector. Returns change records."""
     out, used_old, used_new = [], set(), set()
@@ -98,6 +118,8 @@ def diff_chunks(old, new):
             if s < MODIFIED_SIMILARITY:
                 break
             if i in used_old or j in used_new:
+                continue
+            if not same_passage(old[i], new[j]):
                 continue
             used_old.add(i), used_new.add(j)
             out.append({"kind": "modified", "old": old[i], "new": new[j], "similarity": float(s),

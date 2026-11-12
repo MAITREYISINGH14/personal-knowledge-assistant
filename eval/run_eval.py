@@ -160,7 +160,8 @@ def main():
         try:
             if can_cache:
                 retrieved = system.retrieve(q.question, q.as_of)
-                akey = Cache.key("answer", ANSWER_PROMPT, q.question, *[c.text for c in retrieved[:args.k]])
+                context = system.cache_context(q.question) if hasattr(system, "cache_context") else ANSWER_PROMPT
+                akey = Cache.key("answer", context, q.question, *[c.text for c in retrieved[:args.k]])
                 cached = "" if args.retrieval_only else cache.get(akey)
                 if cached is None:
                     answer = system.generate(q.question, retrieved)

@@ -215,3 +215,31 @@ class TestMetricAndJudge(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestPhase5Fixes(unittest.TestCase):
+    def test_different_clauses_are_not_a_modification(self):
+        # Same document, similar vectors (shared header), but a different clause entirely.
+        old = [chunk("o", "One covered parking slot B-12 is included in the fee.", [1, 0.1], "Doc > 7. Parking")]
+        new = [chunk("n", "The Licensee may keep one small pet with a deposit.", [1, 0.12], "Doc > 7. Pets")]
+        self.assertEqual(sorted(r["kind"] for r in diff_chunks(old, new)), ["added", "removed"])
+
+    def test_rewritten_clause_with_same_heading_is_modified(self):
+        old = [chunk("o", "Minor repairs are the Licensee's job; major ones the Licensor's.", [1, 0], "Doc > 9. Repairs")]
+        new = [chunk("n", "Repairs under 2,000 rupees are paid by the Licensee.", [1, 0.1], "Doc > 9. Repairs")]
+        self.assertEqual([r["kind"] for r in diff_chunks(old, new)], ["modified"])
+
+    def test_date_phrase_removed_from_search_query(self):
+        s = TestTemporalRetrieval().make()
+        seen = []
+        s.embedder = mock.Mock(embed=lambda texts, prefix="": seen.append(texts[0]) or [[0.0]])
+        with mock.patch("pka.temporal.today", return_value=TODAY):
+            s.retrieve("What was my licence fee in June 2026?")
+        self.assertNotIn("June", seen[0])
+        self.assertIn("licence fee", seen[0])
+
+    def test_cache_context_changes_with_change_log(self):
+        s = TestTemporalRetrieval().make()
+        a = s.cache_context("q")
+        s._log["q"] = "Changes in rent ..."
+        self.assertNotEqual(a, s.cache_context("q"))

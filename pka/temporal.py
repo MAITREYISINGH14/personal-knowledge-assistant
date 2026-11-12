@@ -24,8 +24,10 @@ Time rules:
 - Each passage label says which version it is and whether it is current or superseded.
 - For questions about now or about a past date, only passages in force at that time are given:
   answer from them directly and don't bring up other versions unless the question asks.
-- For questions about what changed, use the change log to cover every relevant change (not only
-  the ones in the passages), say what it was before and after, and cite passages where they help."""
+- For questions about what changed, the change log is complete and authoritative. If the
+  question asks what changed in general or "overall", list every substantive change in the log
+  (skip pure date or signature updates); if it asks about one topic, cover that topic fully.
+  Say what it was before and after, and cite passages where they help."""
 
 
 def today() -> date:
@@ -94,6 +96,11 @@ class TemporalSystem(RerankSystem):
         return self._retrieve_on(question, day(scope.on))
 
     def _retrieve_on(self, question: str, d: int):
+        # The date is now a filter, so it shouldn't also pull the search towards chunks that
+        # merely mention dates ("June 2026" matching "Last updated: 20 June 2026").
+        scope = self._scope.get(question)
+        if scope and scope.kind == "as_of" and scope.phrase and scope.phrase != "as_of parameter":
+            question = " ".join(question.replace(scope.phrase, " ").split())
         vec = self.embedder.embed([question], prefix=self.query_prefix)[0]
         dense = [str(p.id) for p in self.store.search(vec, limit=self.pool,
                                                       query_filter=self._date_filter(d))]
@@ -120,6 +127,10 @@ class TemporalSystem(RerankSystem):
         return self._to_chunks(top)
 
     # ---------------------------------------------------------------- answering
+    def cache_context(self, question: str) -> str:
+        """Everything besides the retrieved chunks that shapes the answer, for the eval cache."""
+        return SYSTEM + TEMPORAL_RULES + self._log.get(question, "")
+
     def describe_scope(self, question: str) -> str:
         scope = self._scope.get(question) or parse_time_scope(question, today())
         return scope.describe()
