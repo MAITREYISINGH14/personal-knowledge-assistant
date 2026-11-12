@@ -43,6 +43,14 @@ class VectorStore:
                 models.PointStruct(id=pid, vector=vec, payload=pl)
                 for pid, vec, pl in zip(ids[i:i + batch], vectors[i:i + batch], payloads[i:i + batch])])
 
-    def search(self, vector, limit: int = 5):
+    def search(self, vector, limit: int = 5, query_filter=None):
         return self.client.query_points(self.collection, query=vector, limit=limit,
-                                        with_payload=True).points
+                                        query_filter=query_filter, with_payload=True).points
+
+
+def valid_on_filter(day: int):
+    """Chunks whose validity period covers the given ordinal day."""
+    return models.Filter(must=[
+        models.FieldCondition(key="valid_from_day", range=models.Range(lte=day)),
+        models.FieldCondition(key="valid_to_day", range=models.Range(gt=day)),
+    ])

@@ -10,7 +10,8 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-METRICS = [("hit_rate", "Hit@k"), ("mrr", "MRR"), ("correctness", "Correct")]
+METRICS = [("hit_rate", "Hit@k"), ("mrr", "MRR"), ("version_clean", "Ver.clean"),
+           ("correctness", "Correct")]
 
 
 def latest(system: str) -> str:
@@ -42,7 +43,7 @@ def main():
             continue
         cells = []
         for key, _ in METRICS:
-            x, y = ra["summary"][t][key], rb["summary"][t][key]
+            x, y = ra["summary"][t].get(key), rb["summary"][t].get(key)
             if x is None or y is None:
                 cells.append(f"{'—':>22}")
                 continue

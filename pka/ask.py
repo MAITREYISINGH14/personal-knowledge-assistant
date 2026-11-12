@@ -11,13 +11,14 @@ SYSTEMS = {
     "semantic": ("pka.semantic", "SemanticSystem"),
     "hybrid": ("pka.hybrid", "HybridSystem"),
     "rerank": ("pka.hybrid", "RerankSystem"),
+    "temporal": ("pka.temporal", "TemporalSystem"),
 }
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("question", nargs="+")
-    ap.add_argument("--system", choices=list(SYSTEMS), default="rerank")
+    ap.add_argument("--system", choices=list(SYSTEMS), default="temporal")
     args = ap.parse_args()
     question = " ".join(args.question)
 
@@ -33,11 +34,14 @@ def main():
     except RuntimeError as e:
         print(f"\n{e}")
         sys.exit(1)
+    if hasattr(system, "describe_scope"):
+        print(f"\nTime frame: {system.describe_scope(question)}")
     print("\n" + (result.answer or "(No LLM configured, so showing retrieved chunks only.)") + "\n")
     print("Sources:")
     for i, c in enumerate(result.retrieved, 1):
         where = f" | {c.section.split(' | ')[0].split(' > ')[-1][:50]}" if c.section else ""
-        print(f"  [{i}] {c.doc_id} v{c.version}{where}  (score {c.score:.3f})")
+        status = f"  [{c.meta['status']}]" if c.meta.get("status") in ("current", "superseded") else ""
+        print(f"  [{i}] {c.doc_id} v{c.version}{where}{status}  (score {c.score:.3f})")
 
 
 if __name__ == "__main__":

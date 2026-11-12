@@ -15,6 +15,7 @@ class RetrievedChunk:
     version: Optional[int] = None  # document version this chunk belongs to
     level: int = 0                 # 0 = leaf chunk, >0 = summary node (Phase 4)
     score: float = 0.0
+    meta: dict = field(default_factory=dict)   # e.g. dates and version status (Phase 5)
 
 
 @dataclass

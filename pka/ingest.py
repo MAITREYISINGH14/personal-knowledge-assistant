@@ -123,6 +123,10 @@ def main():
         print(f"Cuts: {cuts['structural']} at headings, {cuts['semantic']} semantic, "
               f"{cuts['forced']} for size; {cuts['single']} short docs kept whole. "
               f"Semantic share of cuts: {share:.0f}%")
+    if args.chunker == "semantic":
+        from pka.versioning import VersionRegistry
+        print("\nBuilding version information...")
+        VersionRegistry(coll, client=store.client).rebuild()
     print(f"Done in {time.perf_counter() - t0:.0f}s.")
 
 

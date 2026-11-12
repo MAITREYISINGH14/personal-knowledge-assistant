@@ -263,14 +263,29 @@ def chat(system: str, user: str, max_tokens: int = 600) -> str:
     raise LLMError(f"No LLM configured (LLM_PROVIDER={provider!r}).")
 
 
+_ODD_CITATION = re.compile(r"【\s*(\d+)[^】]*】")
+
+
+def tidy_citations(text: str) -> str:
+    """Some models write 【1†L1-L2】 despite instructions; turn that into [1]."""
+    return _ODD_CITATION.sub(r"[\1]", text)
+
+
 def format_context(chunks) -> str:
     parts = []
     for i, c in enumerate(chunks, 1):
-        label = f"{c.doc_id} v{c.version}" + (f" | {c.section}" if c.section else "")
+        label = f"{c.doc_id} v{c.version}" + (f" | {c.section.split(' | ')[0]}" if c.section else "")
+        meta = getattr(c, "meta", None) or {}
+        if meta.get("in_force"):
+            label += f" | {meta['in_force']}"
         parts.append(f"[{i}] ({label})\n{c.text}")
     return "\n\n".join(parts)
 
 
 class Answerer:
-    def answer(self, question: str, chunks) -> str:
-        return chat(SYSTEM, f"Context:\n\n{format_context(chunks)}\n\nQuestion: {question}")
+    def answer(self, question: str, chunks, system: str = None, extra: str = "") -> str:
+        user = f"Context:\n\n{format_context(chunks)}"
+        if extra:
+            user += f"\n\n{extra}"
+        user += f"\n\nQuestion: {question}"
+        return tidy_citations(chat(system or SYSTEM, user))

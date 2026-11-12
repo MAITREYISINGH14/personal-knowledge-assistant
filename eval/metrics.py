@@ -52,4 +52,17 @@ def score_retrieval(q: Question, retrieved: list, k: int) -> dict:
         "hit": first_rank is not None,                   # any expected source in top-k
         "full_hit": len(covered) == len(q.sources),      # all expected sources in top-k
         "rr": 1.0 / first_rank if first_rank else 0.0,   # reciprocal rank, for MRR
+        "version_clean": version_clean(q, top),
     }
+
+
+def version_clean(q: Question, top: list):
+    """For 'current' and 'as of' questions: True if no retrieved chunk comes from a version of
+    the asked-about document other than the expected one(s). None for other questions."""
+    if q.type != "temporal" or q.temporal_kind not in ("current", "as_of"):
+        return None
+    expected = {}
+    for src in q.sources:
+        if src.version is not None:
+            expected.setdefault(src.doc_id, set()).add(src.version)
+    return not any(c.doc_id in expected and c.version not in expected[c.doc_id] for c in top)

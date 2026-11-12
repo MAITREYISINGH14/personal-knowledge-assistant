@@ -40,13 +40,17 @@ def summarize(rows: list) -> dict:
     out = {}
     for name, items in groups.items():
         n = len(items)
-        judged = [r["judge"]["score"] for r in items if r.get("judge")]
+        judged = [r["judge"]["score"] for r in items
+                  if r.get("judge") and r["judge"].get("score") is not None]
+        clean = [r["version_clean"] for r in items if r.get("version_clean") is not None]
         out[name] = {
             "n": n,
             "hit_rate": sum(r["hit"] for r in items) / n,
             "full_hit_rate": sum(r["full_hit"] for r in items) / n,
             "mrr": sum(r["rr"] for r in items) / n,
             "correctness": sum(judged) / len(judged) if judged else None,
+            "version_clean": sum(clean) / len(clean) if clean else None,
+            "ungraded": sum(1 for r in items if r.get("judge", {}).get("verdict") == "ungraded"),
             "avg_latency_s": sum(r["latency_s"] for r in items) / n,
         }
     return out
@@ -59,15 +63,18 @@ def to_markdown(system_name, k, summary, warnings, llm_label="", note="") -> str
         lines += [f"**{note}**", ""]
     if warnings:
         lines += ["**Eval-set warnings:**", ""] + [f"- {w}" for w in warnings] + [""]
-    lines += ["| Type | N | Hit@k | Full hit@k | MRR | Correctness | Latency (s) |",
-              "|---|---|---|---|---|---|---|"]
+    lines += ["| Type | N | Hit@k | Full hit@k | MRR | Version clean | Correctness | Latency (s) |",
+              "|---|---|---|---|---|---|---|---|"]
     for t in sorted(QUESTION_TYPES) + ["all"]:
         if t not in summary:
             continue
         s = summary[t]
         corr = f"{s['correctness']:.2f}" if s["correctness"] is not None else "—"
+        if s.get("ungraded"):
+            corr += f" ({s['ungraded']} ungraded)"
+        vc = f"{s['version_clean']:.2f}" if s.get("version_clean") is not None else "—"
         lines.append(f"| {t} | {s['n']} | {s['hit_rate']:.2f} | {s['full_hit_rate']:.2f} | "
-                     f"{s['mrr']:.2f} | {corr} | {s['avg_latency_s']:.2f} |")
+                     f"{s['mrr']:.2f} | {vc} | {corr} | {s['avg_latency_s']:.2f} |")
     return "\n".join(lines) + "\n"
 
 
@@ -174,7 +181,8 @@ def main():
                 grade = cache.get(jkey)
                 if grade is None:
                     grade = judge.grade(q.question, q.expected_answer, answer)
-                    cache.put(jkey, grade)
+                    if grade["verdict"] != "ungraded":      # retry ungraded ones next run
+                        cache.put(jkey, grade)
                 row["judge"] = grade
         except RateLimitExhausted as e:
             stopped = str(e)
