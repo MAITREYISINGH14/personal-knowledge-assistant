@@ -103,6 +103,8 @@ def main():
     ap.add_argument("--judge", action="store_true", help="grade answers with the LLM judge")
     ap.add_argument("--only", choices=sorted(QUESTION_TYPES), help="run one question type")
     ap.add_argument("--fresh", action="store_true", help="ignore cached answers and grades")
+    ap.add_argument("--retrieval-only", action="store_true",
+                    help="score retrieval only: no answers, no judge, no API usage")
     args = ap.parse_args()
 
     questions = load_eval_set(Path(args.eval_set))
@@ -117,6 +119,10 @@ def main():
         sys.exit(str(e))
     name = getattr(system, "name", args.system)
 
+    if args.retrieval_only:
+        args.judge = False
+        system.answerer = None
+        name = f"{name}_retrieval"
     uses_llm = args.judge or bool(getattr(system, "answerer", None))
     llm_label = ""
     if uses_llm:
@@ -148,7 +154,7 @@ def main():
             if can_cache:
                 retrieved = system.retrieve(q.question, q.as_of)
                 akey = Cache.key("answer", ANSWER_PROMPT, q.question, *[c.text for c in retrieved[:args.k]])
-                cached = cache.get(akey)
+                cached = "" if args.retrieval_only else cache.get(akey)
                 if cached is None:
                     answer = system.generate(q.question, retrieved)
                     cache.put(akey, answer)

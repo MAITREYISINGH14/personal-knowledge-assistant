@@ -101,12 +101,13 @@ class TestSemanticChunker(unittest.TestCase):
 
 class TestHeader(unittest.TestCase):
     def test_header(self):
-        doc = mock.Mock(title="Rental Agreement", doc_date="2026-11-01", versioned=True, version=2)
+        doc = mock.Mock(title="Rental Agreement", doc_id="rental_agreement", doc_date="2026-11-01",
+                        versioned=True, version=2)
         h = context_header(doc, "Rental Agreement > 4. Licence Fee | Rental Agreement > 5. Deposit")
         self.assertEqual(h, "Document: Rental Agreement | Section: 4. Licence Fee; 5. Deposit "
                             "| Dated: 2026-11-01 | Version 2")
-        pdf = mock.Mock(title="RAPTOR", doc_date=None, versioned=False, version=1)
-        self.assertEqual(context_header(pdf, "p.3 | p.4"), "Document: RAPTOR")
+        pdf = mock.Mock(title="RAPTOR", doc_id="raptor_2024", doc_date=None, versioned=False, version=1)
+        self.assertEqual(context_header(pdf, "p.3 | p.4"), "Document: RAPTOR (file: raptor 2024)")
 
 
 class TestMetadataPerIndex(unittest.TestCase):
@@ -143,3 +144,27 @@ class TestCompare(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestRetrievalOnly(unittest.TestCase):
+    def test_no_llm_calls(self):
+        from eval import run_eval
+        from pka.interfaces import RetrievedChunk
+
+        class FakeSystem:
+            name = "semantic"
+            answerer = object()
+            def retrieve(self, q, as_of=None):
+                return [RetrievedChunk("rental_agreement", "₹84,000", section="Security Deposit")]
+            def generate(self, q, chunks):
+                raise AssertionError("retrieval-only must not generate answers")
+
+        with tempfile.TemporaryDirectory() as tmp, \
+             mock.patch.object(run_eval, "HERE", Path(tmp)), \
+             mock.patch.object(run_eval, "load_system", return_value=FakeSystem()), \
+             mock.patch("sys.argv", ["run_eval", "--system", "x", "--retrieval-only", "--judge",
+                                     "--eval-set", "tests/fixtures/example_eval_set.json"]), \
+             mock.patch("builtins.print"):
+            run_eval.main()
+            reports = list((Path(tmp) / "reports").glob("*_semantic_retrieval.json"))
+            self.assertEqual(len(reports), 1)

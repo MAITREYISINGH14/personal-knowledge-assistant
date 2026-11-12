@@ -199,6 +199,11 @@ def semantic_chunks(blocks, *, embed_fn, count_tokens, is_pdf=False, max_tokens=
 def context_header(doc, section: str) -> str:
     """Short header prepended to a chunk before embedding, so a chunk 'knows' where it is from."""
     parts = [f"Document: {doc.title}"]
+    # The file name often says what a document is ("call_transcript_design_review") when the
+    # title doesn't, so add it unless the title already covers it.
+    name = str(getattr(doc, "doc_id", "") or "").replace("_", " ").strip()
+    if name and name.lower() not in doc.title.lower():
+        parts[0] += f" (file: {name})"
     names = []
     for sec in section.split(" | "):
         if not sec or sec.startswith("p."):

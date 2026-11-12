@@ -9,7 +9,6 @@ def _quiet_libraries():
     """Hide harmless start-up noise from PyTorch and Hugging Face."""
     os.environ.setdefault("TRANSFORMERS_VERBOSITY", "error")
     os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
-    os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
     for name in ("torch.distributed.elastic", "torch.distributed", "huggingface_hub",
                  "sentence_transformers", "transformers"):
         logging.getLogger(name).setLevel(logging.ERROR)

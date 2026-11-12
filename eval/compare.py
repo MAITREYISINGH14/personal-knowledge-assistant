@@ -13,7 +13,10 @@ METRICS = [("hit_rate", "Hit@k"), ("mrr", "MRR"), ("correctness", "Correct")]
 
 
 def latest(system: str) -> str:
-    files = sorted(f for f in glob.glob(str(HERE / "reports" / f"*_{system}*.json")))
+    import re
+    pattern = re.compile(rf"_{re.escape(system)}(_\d+)?$")    # skips e.g. *_semantic_retrieval
+    files = sorted(f for f in glob.glob(str(HERE / "reports" / "*.json"))
+                   if pattern.search(Path(f).stem))
     if not files:
         sys.exit(f"No report found for '{system}'. Run the eval for it first.")
     return files[-1]
