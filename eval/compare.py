@@ -2,6 +2,7 @@
 
   python -m eval.compare                    # latest baseline vs latest semantic report
   python -m eval.compare A.json B.json      # any two reports
+  python -m eval.compare semantic_retrieval hybrid_rerank_retrieval   # latest of two systems
 """
 import glob
 import json
@@ -23,7 +24,13 @@ def latest(system: str) -> str:
 
 
 def main():
-    a, b = (sys.argv[1], sys.argv[2]) if len(sys.argv) == 3 else (latest("baseline"), latest("semantic"))
+    args = sys.argv[1:]
+    if len(args) == 2 and all(a.endswith(".json") for a in args):
+        a, b = args
+    elif len(args) == 2:                   # two system names, e.g. semantic hybrid_rerank
+        a, b = latest(args[0]), latest(args[1])
+    else:
+        a, b = latest("baseline"), latest("semantic")
     ra, rb = json.loads(Path(a).read_text()), json.loads(Path(b).read_text())
     print(f"A: {Path(a).name}  ({ra['system']}, {ra.get('llm', '')})")
     print(f"B: {Path(b).name}  ({rb['system']}, {rb.get('llm', '')})\n")
@@ -39,8 +46,8 @@ def main():
             if x is None or y is None:
                 cells.append(f"{'—':>22}")
                 continue
-            d = y - x
-            flag = "  " if abs(d) < 0.10 else (" ▲" if d > 0 else " ▼")
+            d = round(y, 2) - round(x, 2)
+            flag = "  " if round(abs(d), 2) < 0.10 else (" ▲" if d > 0 else " ▼")
             cells.append(f"{x:>6.2f} → {y:.2f} ({d:+.2f}){flag}")
         print(f"{t:<10}" + "".join(f"{c:>22}" for c in cells))
     print("\n▲/▼ marks changes of 0.10 or more; smaller changes are within run-to-run noise.")

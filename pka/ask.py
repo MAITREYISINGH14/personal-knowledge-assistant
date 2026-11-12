@@ -1,17 +1,32 @@
-"""Ask a question from the terminal:  python -m pka.ask "What is my current rent?" """
+"""Ask a question from the terminal.
+
+  python -m pka.ask "What is my current rent?"                  # best system so far
+  python -m pka.ask --system baseline "What is my current rent?"
+"""
+import argparse
 import sys
 
-from pka.baseline import BaselineSystem
+SYSTEMS = {
+    "baseline": ("pka.baseline", "BaselineSystem"),
+    "semantic": ("pka.semantic", "SemanticSystem"),
+    "hybrid": ("pka.hybrid", "HybridSystem"),
+    "rerank": ("pka.hybrid", "RerankSystem"),
+}
 
 
 def main():
-    if len(sys.argv) < 2:
-        print('Usage: python -m pka.ask "your question"')
-        return
-    question = " ".join(sys.argv[1:])
+    ap = argparse.ArgumentParser()
+    ap.add_argument("question", nargs="+")
+    ap.add_argument("--system", choices=list(SYSTEMS), default="rerank")
+    args = ap.parse_args()
+    question = " ".join(args.question)
+
+    import importlib
     from pka.llm import LLMError
+    module, cls = SYSTEMS[args.system]
     try:
-        result = BaselineSystem().answer(question)
+        system = getattr(importlib.import_module(module), cls)()
+        result = system.answer(question)
     except LLMError as e:
         print(f"\nLLM error: {e}")
         sys.exit(1)
@@ -21,7 +36,7 @@ def main():
     print("\n" + (result.answer or "(No LLM configured, so showing retrieved chunks only.)") + "\n")
     print("Sources:")
     for i, c in enumerate(result.retrieved, 1):
-        where = f" | {c.section[:60]}" if c.section else ""
+        where = f" | {c.section.split(' | ')[0].split(' > ')[-1][:50]}" if c.section else ""
         print(f"  [{i}] {c.doc_id} v{c.version}{where}  (score {c.score:.3f})")
 
 

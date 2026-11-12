@@ -56,5 +56,10 @@ class Settings:
     chunk_percentile: float = float(os.getenv("CHUNK_PERCENTILE", "92"))
     chunk_window: int = int(os.getenv("CHUNK_WINDOW", "2"))
 
+    # Phase 3 hybrid search and reranking (uses the semantic index; no re-ingest needed)
+    candidate_pool: int = int(os.getenv("CANDIDATE_POOL", "30"))     # from each of dense and BM25
+    reranker_model: str = os.getenv("RERANKER_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2")
+    max_per_doc: int = int(os.getenv("MAX_PER_DOC", "3"))           # per document version
+
 
 settings = Settings()
