@@ -15,16 +15,19 @@ class SummarySystem(TemporalSystem):
     name = "summary"
 
     def __init__(self, k: Optional[int] = None, use_llm: Optional[bool] = None):
-        super().__init__(k, use_llm)
         from pka.storage.vectors import VectorStore
         self.summary_store = VectorStore(settings.qdrant_url, settings.summary_collection, dim=0)
-        if not self.summary_store.client.collection_exists(settings.summary_collection):
+        super().__init__(k, use_llm)
+
+    def _build_index(self):
+        super()._build_index()                      # chunks, then add the summaries
+        client = self.summary_store.client
+        if not client.collection_exists(settings.summary_collection):
             raise RuntimeError("No summaries yet. Run: python -m pka.summarize")
         summaries, offset = {}, None
         while True:
-            points, offset = self.summary_store.client.scroll(
-                settings.summary_collection, limit=512, offset=offset, with_payload=True,
-                with_vectors=False)
+            points, offset = client.scroll(settings.summary_collection, limit=512, offset=offset,
+                                           with_payload=True, with_vectors=False)
             summaries.update({str(p.id): p.payload for p in points})
             if offset is None:
                 break

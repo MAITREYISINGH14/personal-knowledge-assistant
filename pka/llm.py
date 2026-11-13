@@ -97,7 +97,9 @@ def _post_json(url: str, payload: dict, headers: dict = None, retries: int = 8) 
             low = body.lower()
             if e.code == 429:
                 retry_after = float(e.headers.get("Retry-After") or 0)
-                if "per day" in low or "daily" in low or retry_after > LONG_WAIT:
+                # Groq says "tokens per day"; Gemini's quota ids say "PerDay" / "per_day".
+                daily = any(x in low for x in ("per day", "perday", "per_day", "daily"))
+                if daily or retry_after > LONG_WAIT:
                     raise RateLimitExhausted(
                         f"Free-tier daily limit reached ({body[:160]}). Progress is saved; "
                         "run the same command again later to continue.") from e
@@ -126,7 +128,8 @@ def _post_json(url: str, payload: dict, headers: dict = None, retries: int = 8) 
 
 # ---------------------------------------------------------------- model handling
 def _is_reasoning(model: str) -> bool:
-    return "gpt-oss" in model or "qwen3" in model
+    """Models that 'think' before answering and need room for it in max_tokens."""
+    return any(x in model for x in ("gpt-oss", "qwen3", "gemini-2.5", "gemini-3"))
 
 
 _THINK = re.compile(r"<think>.*?</think>", re.DOTALL)
@@ -141,7 +144,7 @@ def _openai_chat(base_url, api_key, model, system, user, max_tokens):
     if _is_reasoning(model):
         # Reasoning models spend tokens "thinking" first; give them room and keep it short.
         payload["max_tokens"] = max(max_tokens, 2048)
-        if "gpt-oss" in model:
+        if "gpt-oss" in model or "gemini" in model:
             payload["reasoning_effort"] = "low"
     else:
         payload["max_tokens"] = max_tokens
@@ -213,8 +216,8 @@ def resolve_model(provider: str, purpose: str = "answer") -> str:
     for model in candidates:
         try:
             _openai_chat(base_url, api_key, model, "Reply with OK.", "OK?", 16)
-        except ModelUnavailable:
-            tried.append(model)
+        except ModelUnavailable as e:
+            tried.append(f"{model} [{str(e)[:160]}]")
             continue
         label = "summaries" if purpose == "summary" else "answers"
         print(f"  Using {provider} model for {label}: {model} (remembered in {MODEL_CACHE.name})")

@@ -161,7 +161,7 @@ def input_tokens(node: Node) -> int:
 # ------------------------------------------------------------------ building
 class SummaryBuilder:
     def __init__(self, db_path=None, embedder=None):
-        self.conn = sqlite3.connect(db_path or settings.sqlite_path)
+        self.conn = sqlite3.connect(db_path or settings.sqlite_path, check_same_thread=False)
         self.conn.executescript(SCHEMA)
         self._embedder = embedder
         self.source = settings.semantic_collection
@@ -206,6 +206,16 @@ class SummaryBuilder:
             out[v] = (0 if i == 0 else date.fromisoformat(eff).toordinal(),
                       date.fromisoformat(until).toordinal() if until else ALWAYS, status)
         return out
+
+    def status(self):
+        """How much summarising is left: documents and API calls (no API use)."""
+        stored = {(r[0], r[1]) for r in self.conn.execute(
+            "SELECT DISTINCT doc_id, version FROM summary_nodes WHERE collection=?",
+            (settings.summary_collection,))}
+        plans = self.plan()
+        pending = [(d, todo) for d, _, todo in plans if todo or (d.doc_id, d.version) not in stored]
+        return {"docs_total": len(plans), "docs_pending": len(pending),
+                "calls_needed": sum(len(t) for _, t in pending)}
 
     def plan(self, doc_filter=None):
         plans = []
@@ -255,10 +265,12 @@ class SummaryBuilder:
                 (settings.summary_collection, n.node_id, d.doc_id, d.version, n.level, n.idx,
                  int(n.is_root), json.dumps([c.node_id for c in n.children]), n.hash,
                  span_label(n.sections)) for n in nodes])
+        from pka import index_state
+        index_state.bump()                  # a running app should reload and use these summaries
 
     def build(self, doc_filter=None, max_calls=None, llm=None):
         """llm(system, user) -> text. Returns (docs_done, calls_made, stopped_reason)."""
-        from pka.llm import RateLimitExhausted, active_model, chat, tidy_citations
+        from pka.llm import LLMError, RateLimitExhausted, active_model, chat, tidy_citations
         model = "custom"
         if llm is None:                      # real run: summaries use their own model/quota
             model = active_model("summary")
@@ -283,6 +295,8 @@ class SummaryBuilder:
                     n.text = text
             except RateLimitExhausted as e:
                 return done, calls, f"free-tier limit reached ({e})"
+            except LLMError as e:          # e.g. wrong model name or key: stop cleanly, keep progress
+                return done, calls, f"API error ({e})"
             self._store(d, nodes)
             done += 1
             levels = max(n.level for n in nodes)
@@ -290,6 +304,37 @@ class SummaryBuilder:
             print(f"  ok    {d.doc_id} v{d.version}: {len(nodes)} summaries over {levels} "
                   f"level(s), {len(todo)} new{note}")
         return done, calls, None
+
+
+def drop_summaries(conn, client, doc_id: str, version: int):
+    """Remove a document version's summary tree from the index (its content changed or it was
+    deleted). Cached summary texts stay, so unchanged parts are reused when it is rebuilt."""
+    try:
+        with conn:
+            conn.execute("DELETE FROM summary_nodes WHERE collection=? AND doc_id=? AND version=?",
+                         (settings.summary_collection, doc_id, version))
+    except sqlite3.OperationalError:
+        pass                                        # summaries were never set up
+    if client.collection_exists(settings.summary_collection):
+        from qdrant_client import models
+        client.delete(settings.summary_collection, points_selector=models.FilterSelector(
+            filter=models.Filter(must=[
+                models.FieldCondition(key="doc_id", match=models.MatchValue(value=doc_id)),
+                models.FieldCondition(key="version", match=models.MatchValue(value=version))])))
+
+
+def check_qdrant(client_factory=None):
+    """Fail early and clearly if Qdrant isn't running, before any API calls are spent."""
+    try:
+        if client_factory is None:
+            from qdrant_client import QdrantClient
+            client_factory = lambda: QdrantClient(url=settings.qdrant_url)
+        client_factory().get_collections()
+    except Exception as e:
+        raise SystemExit(
+            f"Can't reach Qdrant at {settings.qdrant_url} ({type(e).__name__}).\n"
+            "Open Docker Desktop, wait for 'Engine running', then run: docker compose up -d\n"
+            "Nothing was lost: finished summaries are saved and will be reused.")
 
 
 def main():
@@ -330,6 +375,7 @@ def main():
                 print(f"  {d.doc_id} v{d.version}: {len(todo)} calls, ~{sum(input_tokens(n) for n in todo):,} tokens")
         print("\nCompare with your daily token limit for the summary model (Groq console → Limits).")
         return
+    check_qdrant()
     if not todo_nodes:
         print("Everything is already summarised; refreshing the summary index.")
     try:

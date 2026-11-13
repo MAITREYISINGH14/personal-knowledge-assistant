@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Personal Knowledge Assistant</title>
+<style>
+:root{--bg:#f6f6f3;--panel:#fff;--text:#1c1c1a;--muted:#686862;--line:#e2e2dc;--accent:#2f5fd0;--accent-text:#fff;
+  --good:#1d7a3c;--warn:#9a5b00;--bad:#b3261e;--chip:#eceff7;--flash:#fff4c2;color-scheme:light dark}
+@media (prefers-color-scheme:dark){:root{--bg:#151515;--panel:#1e1e1e;--text:#ebebe8;--muted:#9b9b94;--line:#323230;
+  --accent:#7ea4ff;--accent-text:#0c0c0c;--good:#6fcf8c;--warn:#f0b35a;--bad:#ff8a80;--chip:#242a38;--flash:#4a4320}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+header{background:var(--panel);border-bottom:1px solid var(--line);padding:10px 18px;display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}
+header h1{font-size:16px;margin:0;font-weight:650}
+.pills{display:flex;flex-wrap:wrap;gap:6px;flex:1;min-width:0}
+.pill{background:var(--chip);border-radius:999px;padding:2px 10px;font-size:12.5px;color:var(--muted);white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.pill.warn{color:var(--warn)}.pill.bad{color:var(--bad)}.pill.good{color:var(--good)}
+button{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:8px;padding:5px 12px}
+button:hover{border-color:var(--accent)}button:disabled{opacity:.55;cursor:default}
+button.primary{background:var(--accent);color:var(--accent-text);border-color:var(--accent)}
+nav{display:flex;gap:4px;padding:10px 18px 0}
+nav button{border-radius:8px 8px 0 0;border-bottom:none;background:transparent}
+nav button.active{background:var(--panel);font-weight:600;border-color:var(--line)}
+main{padding:0 18px 18px}
+.view{display:none;background:var(--panel);border:1px solid var(--line);border-radius:0 10px 10px 10px;min-height:calc(100vh - 150px)}
+.view.active{display:block}
+#banner{margin:10px 18px 0;padding:8px 12px;border-radius:8px;background:var(--chip);color:var(--bad);display:none}
+.ask{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);min-height:calc(100vh - 150px)}
+@media (max-width:860px){.ask{grid-template-columns:1fr}}
+.chat{display:flex;flex-direction:column;border-right:1px solid var(--line);min-height:0}
+#messages{flex:1;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:14px;max-height:calc(100vh - 280px)}
+.bubble-q{align-self:flex-end;background:var(--accent);color:var(--accent-text);padding:8px 12px;border-radius:12px 12px 2px 12px;max-width:85%;white-space:pre-wrap}
+.bubble-a{align-self:flex-start;background:var(--bg);border:1px solid var(--line);padding:10px 12px;border-radius:12px 12px 12px 2px;max-width:95%}
+.bubble-a.selected{border-color:var(--accent)}
+.answer{white-space:pre-wrap;overflow-wrap:anywhere}
+.cite{border:none;background:var(--chip);color:var(--accent);border-radius:6px;padding:0 5px;margin:0 1px;font-size:12.5px;font-weight:600}
+.meta{margin-top:8px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:12.5px;color:var(--muted)}
+.err{margin-top:8px;color:var(--bad);font-size:13.5px}
+.thinking{color:var(--muted)}
+.thinking::after{content:"";display:inline-block;width:10px;height:10px;margin-left:8px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty{margin:auto;text-align:center;color:var(--muted);max-width:420px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:12px}
+.chips button{background:var(--chip);border-color:transparent;font-size:13.5px}
+form.composer{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--line)}
+textarea{flex:1;font:inherit;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;resize:vertical;min-height:42px;max-height:160px}
+.sources{padding:14px 16px;overflow:auto;max-height:calc(100vh - 150px)}
+.sources h2,.docdetail h2{font-size:14px;margin:0 0 8px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.toggle{display:flex;gap:6px;align-items:center;font-size:13px;color:var(--muted);margin-bottom:10px}
+.card{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:10px;background:var(--bg)}
+.card.flash{animation:flash 1.2s ease}
+@keyframes flash{0%,60%{background:var(--flash)}100%{background:var(--bg)}}
+.card .top{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;font-size:13px}
+.n{background:var(--accent);color:var(--accent-text);border-radius:6px;padding:0 6px;font-weight:700;font-size:12px}
+.tag{border-radius:6px;padding:0 6px;font-size:12px;background:var(--chip);color:var(--muted)}
+.tag.current{color:var(--good)}.tag.superseded{color:var(--warn)}.tag.summary{color:var(--accent)}
+.heading{color:var(--muted);font-size:13px;margin-top:3px}
+.text{margin-top:6px;font-size:13.5px;white-space:pre-wrap;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.card.open .text{display:block;-webkit-line-clamp:unset}
+.more{border:none;background:none;color:var(--accent);padding:0;font-size:12.5px;margin-top:4px}
+.docs{display:grid;grid-template-columns:280px minmax(0,1fr);min-height:calc(100vh - 150px)}
+@media (max-width:860px){.docs{grid-template-columns:1fr}}
+.doclist{border-right:1px solid var(--line);padding:12px;overflow:auto;max-height:calc(100vh - 150px)}
+.doclist input{width:100%;font:inherit;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--text);margin-bottom:8px}
+.doc{display:block;width:100%;text-align:left;border:1px solid transparent;border-radius:8px;padding:6px 8px;margin-bottom:2px;background:none}
+.doc.active{background:var(--chip);border-color:var(--line)}
+.doc small{display:block;color:var(--muted)}
+.docdetail{padding:14px 18px;overflow:auto;max-height:calc(100vh - 150px)}
+.docdetail h3{margin:0 0 4px;font-size:18px}
+table{border-collapse:collapse;width:100%;font-size:13.5px;margin:6px 0 14px}
+th,td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line)}th{color:var(--muted);font-weight:600}
+.change{display:grid;grid-template-columns:86px minmax(0,1fr);gap:8px;padding:5px 0;border-bottom:1px solid var(--line);font-size:13.5px}
+.kind{font-weight:600;text-transform:uppercase;font-size:11.5px}
+.kind.modified{color:var(--warn)}.kind.added{color:var(--good)}.kind.removed{color:var(--bad)}
+.chunk{white-space:pre-wrap;overflow-wrap:anywhere;font-size:13.5px;margin:0 0 8px}
+.chunk.boxed{border:1px dashed var(--accent);border-radius:8px;padding:8px 10px}
+.chunk .label{display:block;color:var(--accent);font-size:12px;margin-bottom:4px}
+.controls{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:6px 0 10px;font-size:13px;color:var(--muted)}
+select{font:inherit;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:2px 6px}
+details{margin:6px 0;border:1px solid var(--line);border-radius:8px;padding:6px 10px}summary{cursor:pointer;font-size:13.5px}
+.muted{color:var(--muted)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Personal Knowledge Assistant</h1>
+  <div class="pills" id="pills"></div>
+  <button id="syncBtn" type="button">Sync now</button>
+</header>
+<div id="banner" role="alert"></div>
+<nav>
+  <button type="button" class="active" data-tab="ask">Ask</button>
+  <button type="button" data-tab="docs">Documents</button>
+</nav>
+<main>
+  <section class="view active" id="view-ask">
+    <div class="ask">
+      <div class="chat">
+        <div id="messages" aria-live="polite"></div>
+        <form class="composer" id="composer">
+          <textarea id="question" rows="2" placeholder="Ask about your documents… (Enter to send, Shift+Enter for a new line)" aria-label="Your question"></textarea>
+          <button class="primary" id="send" type="submit">Ask</button>
+        </form>
+      </div>
+      <aside class="sources">
+        <h2>Sources</h2>
+        <label class="toggle"><input type="checkbox" id="details"> Show chunk details (scores, full text)</label>
+        <div id="sources"></div>
+      </aside>
+    </div>
+  </section>
+  <section class="view" id="view-docs">
+    <div class="docs">
+      <aside class="doclist">
+        <input id="docfilter" placeholder="Filter documents" aria-label="Filter documents">
+        <div id="doclist"></div>
+      </aside>
+      <section class="docdetail" id="docdetail"><p class="muted">Select a document to see its versions, what changed between them, and how it was split into chunks.</p></section>
+    </div>
+  </section>
+</main>
+<script>
+"use strict";
+// <pure>
+function splitAnswer(text, nSources) {
+  const out = [], re = /(\*\*[^*\n]+\*\*|\[\d+\])/g;
+  let last = 0, m;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) out.push({t: "text", v: text.slice(last, m.index)});
+    const tok = m[0];
+    if (tok.startsWith("**")) out.push({t: "bold", v: tok.slice(2, -2)});
+    else {
+      const k = parseInt(tok.slice(1, -1), 10);
+      out.push(k >= 1 && k <= nSources ? {t: "cite", v: k} : {t: "text", v: tok});
+    }
+    last = m.index + tok.length;
+  }
+  if (last < text.length) out.push({t: "text", v: text.slice(last)});
+  return out;
+}
+function sourceTag(s) {
+  if (s.level > 0) return {text: "summary", cls: "summary"};
+  if (s.status === "current") return {text: "current version", cls: "current"};
+  if (s.status === "superseded") return {text: "superseded version", cls: "superseded"};
+  return null;
+}
+function timeAgo(iso, nowMs) {
+  const t = Date.parse(iso);
+  if (isNaN(t)) return "";
+  const s = Math.max(0, Math.round((nowMs - t) / 1000));
+  if (s < 60) return "just now";
+  if (s < 3600) return Math.round(s / 60) + " min ago";
+  if (s < 86400) return Math.round(s / 3600) + " h ago";
+  return Math.round(s / 86400) + " d ago";
+}
+function groupChanges(changes) {
+  const groups = [];
+  for (const c of changes) {
+    const key = c.from + "→" + c.to;
+    let g = groups.find(x => x.key === key);
+    if (!g) { g = {key, from: c.from, to: c.to, items: []}; groups.push(g); }
+    g.items.push(c);
+  }
+  return groups;
+}
+// </pure>
+
+const $ = id => document.getElementById(id);
+const state = {messages: [], selected: -1, busy: false, docs: [], openDoc: null, openVersion: null,
+               status: null, seen: "", timer: null, boundaries: false};
+
+function h(tag, props, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(props || {})) {
+    if (k === "class") e.className = v;
+    else if (k === "value") e.value = v;
+    else if (k === "checked") e.checked = !!v;
+    else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+    else if (v === true) e.setAttribute(k, "");
+    else if (v !== false && v != null) e.setAttribute(k, v);
+  }
+  for (const kid of kids.flat()) {
+    if (kid == null || kid === false) continue;
+    e.append(kid instanceof Node ? kid : document.createTextNode(String(kid)));
+  }
+  return e;
+}
+function clear(el) { while (el.firstChild) el.removeChild(el.firstChild); return el; }
+
+async function api(path, opts) {
+  const res = await fetch(path, opts);
+  if (!res.ok) {
+    let msg = res.statusText;
+    try { const j = await res.json(); msg = j.detail || msg; } catch (_) {}
+    throw new Error(typeof msg === "string" ? msg : JSON.stringify(msg));
+  }
+  return res.json();
+}
+
+/* ---------------------------------------------------------------- status */
+function renderStatus() {
+  const s = state.status, pills = clear($("pills")), banner = $("banner");
+  if (!s) return;
+  pills.append(h("span", {class: "pill"}, `${s.documents} documents · ${s.versions} versions · ${s.chunks} chunks`));
+  if (s.pending && s.pending.docs_total) {
+    const p = s.pending, done = p.docs_total - p.docs_pending;
+    pills.append(h("span", {class: "pill " + (p.docs_pending ? "warn" : "good"),
+      title: p.docs_pending ? "Run: python -m pka.summarize" : ""},
+      p.docs_pending ? `Summaries ${done}/${p.docs_total} documents · ~${p.calls_needed} calls left` : "Summaries complete"));
+  }
+  if (s.syncing) pills.append(h("span", {class: "pill warn"}, "Syncing…"));
+  else if (s.last_sync) pills.append(h("span", {class: "pill", title: s.last_sync.summary},
+    `Last sync ${timeAgo(s.last_sync.at, Date.parse(s.server_time))}: ${s.last_sync.summary}`));
+  else pills.append(h("span", {class: "pill"}, "No sync yet"));
+  if (s.watching) pills.append(h("span", {class: "pill good", title: s.corpus_dir}, "Watching folder"));
+  pills.append(h("span", {class: "pill"}, `${s.system || "loading"} · answers: ${s.llm}`));
+  $("syncBtn").disabled = s.syncing;
+  let note = "";
+  if (s.last_sync_error) note = "Sync problem: " + s.last_sync_error;
+  else if (!s.ready && s.problem) note = s.problem;
+  else if (!s.ready) note = "Loading models… the first question may take a few seconds.";
+  banner.style.display = note ? "block" : "none";
+  banner.style.color = (!s.ready && !s.problem && !s.last_sync_error) ? "var(--muted)" : "var(--bad)";
+  banner.textContent = note;
+  const fingerprint = [s.documents, s.versions, s.chunks, s.summaries, s.last_sync && s.last_sync.at].join(":");
+  if (fingerprint !== state.seen) {
+    const first = state.seen === "";
+    state.seen = fingerprint;
+    if (!first) loadDocs();
+  }
+}
+async function refreshStatus() {
+  try { state.status = await api("/api/status"); renderStatus(); }
+  catch (e) { const b = $("banner"); b.style.display = "block"; b.style.color = "var(--bad)"; b.textContent = "Can't reach the app: " + e.message; }
+  const fast = state.status && (state.status.syncing || !state.status.ready);
+  clearTimeout(state.timer);
+  state.timer = setTimeout(refreshStatus, fast ? 2500 : 15000);
+}
+async function syncNow() {
+  $("syncBtn").disabled = true;
+  try { await api("/api/sync", {method: "POST"}); } catch (e) { alert(e.message); }
+  refreshStatus();
+}
+
+/* ---------------------------------------------------------------- ask */
+function renderMessages() {
+  const box = clear($("messages"));
+  if (!state.messages.length) {
+    box.append(h("div", {class: "empty"},
+      h("p", {}, "Ask anything about the documents in your folder. Answers cite their sources, and questions about time work too."),
+      h("div", {class: "chips"}, ["What is my monthly rent now?", "What changed when the rental agreement was renewed?",
+        "How is the big survey of large language models organised?"].map(q =>
+          h("button", {type: "button", onclick: () => send(q)}, q)))));
+    return;
+  }
+  state.messages.forEach((m, i) => {
+    box.append(h("div", {class: "bubble-q"}, m.q));
+    const a = h("div", {class: "bubble-a" + (i === state.selected ? " selected" : "")});
+    if (m.loading) a.append(h("span", {class: "thinking"}, "Searching your documents"));
+    else {
+      if (m.answer) {
+        const ans = h("div", {class: "answer"});
+        for (const tok of splitAnswer(m.answer, (m.sources || []).length)) {
+          if (tok.t === "cite") ans.append(h("button", {type: "button", class: "cite", title: "Show source " + tok.v,
+            onclick: () => { state.selected = i; renderMessages(); renderSources(); focusSource(tok.v); }}, "[" + tok.v + "]"));
+          else if (tok.t === "bold") ans.append(h("strong", {}, tok.v));
+          else ans.append(tok.v);
+        }
+        a.append(ans);
+      }
+      if (m.error) a.append(h("div", {class: "err"}, m.error));
+      const meta = h("div", {class: "meta"});
+      if (m.time_frame) meta.append(h("span", {class: "tag"}, "Time frame: " + m.time_frame));
+      if ((m.sources || []).length) meta.append(h("button", {type: "button",
+        onclick: () => { state.selected = i; renderMessages(); renderSources(); }}, `View sources (${m.sources.length})`));
+      if (meta.childNodes.length) a.append(meta);
+    }
+    box.append(a);
+  });
+  box.scrollTop = box.scrollHeight;
+}
+function renderSources() {
+  const box = clear($("sources")), m = state.messages[state.selected];
+  if (!m || m.loading) { box.append(h("p", {class: "muted"}, "The passages behind an answer appear here.")); return; }
+  const detailed = $("details").checked;
+  if (!(m.sources || []).length) { box.append(h("p", {class: "muted"}, "No passages were found.")); return; }
+  box.append(h("p", {class: "muted"}, "For: " + m.q));
+  for (const s of m.sources) {
+    const tag = sourceTag(s);
+    const card = h("div", {class: "card" + (detailed ? " open" : ""), id: "src-" + s.n},
+      h("div", {class: "top"},
+        h("span", {class: "n"}, s.n),
+        h("strong", {}, `${s.doc_id} v${s.version}`),
+        tag && h("span", {class: "tag " + tag.cls}, tag.text),
+        detailed && h("span", {class: "tag"}, "score " + s.score)),
+      s.heading && h("div", {class: "heading"}, s.heading + (s.in_force ? " · " + s.in_force : "")),
+      h("div", {class: "text"}, s.text));
+    const long = s.text.length > 260;
+    if (long && !detailed) {
+      const more = h("button", {type: "button", class: "more", onclick: () => {
+        card.classList.toggle("open"); more.textContent = card.classList.contains("open") ? "Show less" : "Show more"; }}, "Show more");
+      card.append(more);
+    }
+    box.append(card);
+  }
+}
+function focusSource(n) {
+  const card = $("src-" + n);
+  if (!card) return;
+  card.classList.add("open", "flash");
+  card.scrollIntoView({behavior: "smooth", block: "nearest"});
+  setTimeout(() => card.classList.remove("flash"), 1300);
+}
+async function send(text) {
+  const q = (text || "").trim();
+  if (!q || state.busy) return;
+  state.busy = true; $("send").disabled = true; $("question").value = "";
+  const msg = {q, loading: true};
+  state.messages.push(msg); state.selected = state.messages.length - 1;
+  renderMessages(); renderSources();
+  try {
+    Object.assign(msg, await api("/api/ask", {method: "POST", headers: {"Content-Type": "application/json"},
+                                              body: JSON.stringify({question: q})}), {loading: false});
+  } catch (e) { Object.assign(msg, {loading: false, error: e.message, sources: []}); }
+  state.busy = false; $("send").disabled = false;
+  renderMessages(); renderSources();
+  refreshStatus();
+}
+
+/* ---------------------------------------------------------------- documents */
+async function loadDocs() {
+  try { state.docs = (await api("/api/documents")); } catch (e) { state.docs = []; }
+  renderDocList();
+  if (state.openDoc) openDocument(state.openDoc, state.openVersion, true);
+}
+function renderDocList() {
+  const box = clear($("doclist")), f = $("docfilter").value.trim().toLowerCase();
+  const docs = state.docs.filter(d => !f || d.doc_id.toLowerCase().includes(f) || (d.title || "").toLowerCase().includes(f));
+  if (!docs.length) box.append(h("p", {class: "muted"}, state.docs.length ? "No match." : "No documents indexed yet."));
+  for (const d of docs) {
+    box.append(h("button", {type: "button", class: "doc" + (d.doc_id === state.openDoc ? " active" : ""),
+      onclick: () => openDocument(d.doc_id)},
+      h("strong", {}, d.doc_id),
+      h("small", {}, `${d.versions} version${d.versions === 1 ? "" : "s"} · ${d.chunks} chunks` +
+        (d.changes ? ` · ${d.changes} changes` : "") + (d.summarised ? " · summarised" : ""))));
+  }
+}
+async function openDocument(docId, version, quiet) {
+  state.openDoc = docId;
+  if (!quiet) renderDocList();
+  const box = $("docdetail");
+  let doc;
+  try { doc = await api("/api/documents/" + encodeURIComponent(docId)); }
+  catch (e) { clear(box).append(h("p", {class: "err"}, e.message)); return; }
+  const vs = doc.versions;
+  state.openVersion = vs.some(v => v.version === version) ? version : vs[vs.length - 1].version;
+  let data = {chunks: [], summaries: []};
+  try { data = await api(`/api/documents/${encodeURIComponent(docId)}/chunks?version=${state.openVersion}`); } catch (_) {}
+  clear(box);
+  box.append(h("h3", {}, doc.title || docId), h("p", {class: "muted"}, docId));
+  box.append(h("h2", {}, "Versions"), h("table", {},
+    h("thead", {}, h("tr", {}, ["Version", "In force from", "Until", "Status", "Chunks", "Summary"].map(t => h("th", {}, t)))),
+    h("tbody", {}, vs.map(v => h("tr", {},
+      h("td", {}, "v" + v.version + (v.auto ? " (from an edit)" : "")),
+      h("td", {}, v.from || "—"), h("td", {}, v.until || "now"),
+      h("td", {}, v.status), h("td", {}, v.chunks),
+      h("td", {}, v.summary ? (v.summary.has_overview ? "overview + parts" : "partial") : "—"))))));
+  box.append(h("h2", {}, "What changed"));
+  if (!doc.changes.length) box.append(h("p", {class: "muted"}, vs.length > 1 ? "No chunk-level changes recorded." : "Only one version, so nothing has changed yet."));
+  for (const g of groupChanges(doc.changes)) {
+    box.append(h("p", {}, h("strong", {}, `v${g.from} → v${g.to}`)));
+    for (const c of g.items)
+      box.append(h("div", {class: "change"}, h("span", {class: "kind " + c.kind}, c.kind),
+        h("span", {}, h("strong", {}, c.section ? c.section + ": " : ""), c.detail)));
+  }
+  box.append(h("h2", {style: "margin-top:16px"}, "Chunks"));
+  const sel = h("select", {onchange: e => openDocument(docId, parseInt(e.target.value, 10))},
+    vs.map(v => h("option", {value: v.version, selected: v.version === state.openVersion}, "v" + v.version)));
+  const tog = h("input", {type: "checkbox", checked: state.boundaries, onchange: e => { state.boundaries = e.target.checked; openDocument(docId, state.openVersion, true); }});
+  box.append(h("div", {class: "controls"}, h("label", {}, "Version ", sel), h("label", {}, tog, " Show chunk boundaries"),
+    h("span", {}, `${data.chunks.length} chunks`)));
+  for (const c of data.chunks)
+    box.append(h("div", {class: "chunk" + (state.boundaries ? " boxed" : "")},
+      state.boundaries && h("span", {class: "label"}, `chunk ${c.index + 1} · ${c.tokens} tokens · ${c.heading || "no heading"}`), c.text));
+  if (data.summaries.length) {
+    box.append(h("h2", {style: "margin-top:16px"}, "Summaries"));
+    for (const s of data.summaries)
+      box.append(h("details", {}, h("summary", {}, s.overview ? "Document overview" : `Level ${s.level}, part ${s.part} · ${s.span}`), h("p", {class: "chunk"}, s.text)));
+  }
+}
+
+/* ---------------------------------------------------------------- wiring */
+function showTab(name) {
+  document.querySelectorAll("nav button").forEach(b => b.classList.toggle("active", b.dataset.tab === name));
+  document.querySelectorAll(".view").forEach(v => v.classList.toggle("active", v.id === "view-" + name));
+  if (name === "docs") loadDocs();
+}
+document.querySelectorAll("nav button").forEach(b => b.addEventListener("click", () => showTab(b.dataset.tab)));
+$("composer").addEventListener("submit", e => { e.preventDefault(); send($("question").value); });
+$("question").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send($("question").value); } });
+$("details").addEventListener("change", renderSources);
+$("docfilter").addEventListener("input", renderDocList);
+$("syncBtn").addEventListener("click", syncNow);
+renderMessages(); renderSources(); refreshStatus(); loadDocs();
+</script>
+</body>
+</html>

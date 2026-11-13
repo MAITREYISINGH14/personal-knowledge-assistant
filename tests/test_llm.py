@@ -173,3 +173,24 @@ class TestEvidence(unittest.TestCase):
     def test_dash_normalisation(self):
         from eval.metrics import has_evidence
         self.assertTrue(has_evidence("RAG\u2011Sequence model", ["RAG-Sequence"]))
+
+
+class TestGeminiQuirks(LLMTestCase):
+    def test_gemini_daily_quota_stops(self):
+        llm.settings.llm_provider = "gemini"
+        body = b'{"error":{"details":[{"quotaId":"GenerateRequestsPerDayPerProjectPerModel-FreeTier"}]}}'
+        with mock.patch.dict("os.environ", {"GEMINI_API_KEY": "k"}), \
+             mock.patch.object(llm.settings, "llm_model", "gemini-2.5-flash"), \
+             mock.patch("urllib.request.urlopen", side_effect=http_error(429, body)):
+            with self.assertRaises(llm.RateLimitExhausted):
+                llm.chat("s", "u")
+
+    def test_gemini_gets_room_to_think(self):
+        llm.settings.llm_provider = "gemini"
+        with mock.patch.dict("os.environ", {"GEMINI_API_KEY": "k"}), \
+             mock.patch.object(llm.settings, "llm_model", "gemini-2.5-flash"), \
+             mock.patch("urllib.request.urlopen", return_value=ok("fine")) as op:
+            llm.chat("s", "u", max_tokens=500)
+            body = json.loads(op.call_args[0][0].data)
+        self.assertGreaterEqual(body["max_tokens"], 2048)
+        self.assertEqual(body["reasoning_effort"], "low")

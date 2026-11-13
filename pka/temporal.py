@@ -41,11 +41,19 @@ class TemporalSystem(RerankSystem):
 
     def __init__(self, k: Optional[int] = None, use_llm: Optional[bool] = None):
         super().__init__(k, use_llm)
+        self.registry = VersionRegistry(self.collection, client=self.store.client)
+        self._scope, self._log = {}, {}
+        self._refresh_versions()
+
+    def _refresh_versions(self):
         if not any("valid_from_day" in p for p in self.payloads.values()):
             raise RuntimeError("No version information in the index yet. Run: python -m pka.versioning")
-        self.registry = VersionRegistry(self.collection, client=self.store.client)
         self.versioned = self.registry.versioned_docs()
+
+    def reload(self):
+        super().reload()
         self._scope, self._log = {}, {}
+        self._refresh_versions()
 
     # ---------------------------------------------------------------- helpers
     def _date_filter(self, d: int):

@@ -23,12 +23,20 @@ class HybridSystem(SemanticSystem):
         super().__init__(k, use_llm)
         self.pool = settings.candidate_pool
         self.max_per_doc = settings.max_per_doc
-        self.payloads, self.ids = self._load_payloads()
-        self.bm25 = BM25([self._passage(pid) for pid in self.ids])
+        self._build_index()
         self.reranker = None
         if self.use_rerank:
             from pka.retrieval.rerank import Reranker
             self.reranker = Reranker(settings.reranker_model)
+
+    def _build_index(self):
+        """Load every chunk's text and metadata into memory and build the keyword index."""
+        self.payloads, self.ids = self._load_payloads()
+        self.bm25 = BM25([self._passage(pid) for pid in self.ids])
+
+    def reload(self):
+        """Pick up changes made to the index since this system was created (new files etc.)."""
+        self._build_index()
 
     def _load_payloads(self):
         payloads, offset = {}, None

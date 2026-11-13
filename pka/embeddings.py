@@ -30,7 +30,9 @@ class Embedder:
 
     @property
     def dim(self) -> int:
-        return self.model.get_sentence_embedding_dimension()
+        m = self.model                       # the method was renamed in newer sentence-transformers
+        fn = getattr(m, "get_embedding_dimension", None) or m.get_sentence_embedding_dimension
+        return fn()
 
     @property
     def max_tokens(self) -> int:

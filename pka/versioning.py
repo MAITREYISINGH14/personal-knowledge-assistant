@@ -138,8 +138,10 @@ def diff_chunks(old, new):
 class VersionRegistry:
     def __init__(self, collection: str, db_path=None, client=None):
         self.collection = collection
-        self.conn = sqlite3.connect(db_path or settings.sqlite_path)
+        self.conn = sqlite3.connect(db_path or settings.sqlite_path, check_same_thread=False)
         self.conn.executescript(SCHEMA)
+        from pka.storage.metadata import ensure_effective_date
+        ensure_effective_date(self.conn)
         self._client = client
 
     @property
@@ -152,12 +154,14 @@ class VersionRegistry:
     # ------------------------------------------------------------------ building
     def _documents(self):
         rows = self.conn.execute(
-            "SELECT d.doc_id, d.version, d.doc_date, d.file_mtime FROM documents d "
+            "SELECT d.doc_id, d.version, d.doc_date, d.file_mtime, d.effective_date FROM documents d "
             "JOIN ingested i ON i.doc_id=d.doc_id AND i.version=d.version AND i.collection=?",
             (self.collection,)).fetchall()
         docs = defaultdict(list)
-        for doc_id, version, doc_date, mtime in rows:
-            if doc_date:
+        for doc_id, version, doc_date, mtime, edit_date in rows:
+            if edit_date:                      # a version created automatically from an edit
+                eff, src = date.fromisoformat(edit_date), "edit date"
+            elif doc_date:
                 eff, src = date.fromisoformat(doc_date), "document"
             else:
                 eff, src = datetime.fromisoformat(mtime).date(), "file date"

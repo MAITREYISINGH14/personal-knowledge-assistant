@@ -1,8 +1,12 @@
 """Ingest the corpus into an index.
 
   python -m pka.ingest --reset                       # Phase 1 baseline (fixed-size chunks)
-  python -m pka.ingest --chunker semantic --reset    # Phase 2 semantic chunks
+  python -m pka.ingest --chunker semantic --reset    # rebuild the semantic index from scratch
+  python -m pka.ingest --chunker semantic            # same as: python -m pka.sync
 Without --reset, only new or changed files are processed.
+
+Day to day, use python -m pka.sync (or python -m pka.app, which syncs automatically): it also
+removes deleted files and keeps the history of files you edit in place.
 """
 import argparse
 import time
@@ -11,7 +15,7 @@ from pka.config import settings
 from pka.embeddings import Embedder
 from pka.ingestion.loaders import discover, load_file
 from pka.storage.metadata import MetadataStore
-from pka.storage.vectors import VectorStore, point_id
+from pka.storage.ids import point_id
 
 
 def fixed_plan():
@@ -26,10 +30,11 @@ def fixed_plan():
     return settings.baseline_collection, embedder, chunk
 
 
-def semantic_plan():
+def semantic_plan(embedder=None, boundary=None):
+    """(collection, embedder, chunk function). Pass already-loaded models to reuse them."""
     from pka.chunking.semantic import context_header, semantic_chunks
-    embedder = Embedder(settings.semantic_embed_model)
-    boundary = Embedder(settings.boundary_model)
+    embedder = embedder or Embedder(settings.semantic_embed_model)
+    boundary = boundary or Embedder(settings.boundary_model)
 
     def chunk(doc):
         chunks, stats = semantic_chunks(
@@ -42,15 +47,52 @@ def semantic_plan():
     return settings.semantic_collection, embedder, chunk
 
 
+def ingest_document(doc, chunk, embedder, store, meta, coll, effective_date=None):
+    """Chunk, embed and store one document version.
+    Returns (number of chunks, chunking stats, chunks over the model's token limit).
+    Nothing is changed when the document yields no text (e.g. a scanned PDF)."""
+    pairs, stats = chunk(doc)
+    if not pairs:
+        return 0, stats, 0
+    vectors = embedder.embed([t for _, t in pairs])
+    token_counts = embedder.count_tokens_batch([t for _, t in pairs])
+    ids, payloads, rows, over_limit = [], [], [], 0
+    for (c, embed_text), n_tok in zip(pairs, token_counts):
+        over_limit += n_tok > embedder.max_tokens
+        pid = point_id(coll, doc.doc_id, doc.version, c.index)
+        ids.append(pid)
+        payloads.append({"doc_id": doc.doc_id, "version": doc.version, "section": c.section,
+                         "chunk_index": c.index, "text": c.text, "embed_text": embed_text,
+                         "doc_date": doc.doc_date, "title": doc.title})
+        rows.append({"chunk_id": pid, "chunk_index": c.index, "section": c.section,
+                     "text": c.text, "n_words": c.n_words, "n_tokens": n_tok})
+    store.delete_document(doc.doc_id, doc.version)
+    store.upsert(ids, vectors, payloads)
+    meta.save_document(doc, coll, rows, effective_date=effective_date)
+    return len(pairs), stats, over_limit
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--chunker", choices=["fixed", "semantic"], default="fixed")
     ap.add_argument("--reset", action="store_true", help="drop this index and rebuild it")
+    ap.add_argument("--force-reset", action="store_true",
+                    help="allow --reset even if it would delete edit history kept only in the index")
     args = ap.parse_args()
     t0 = time.perf_counter()
 
+    if args.chunker == "semantic" and not args.reset:
+        from pka.sync import SyncBusy, SyncError, Syncer
+        try:
+            report = Syncer().sync()
+        except (SyncError, SyncBusy) as e:
+            raise SystemExit(str(e))
+        print(report.text())
+        return
+
     print("Loading models (the first run downloads them)...")
     coll, embedder, chunk = fixed_plan() if args.chunker == "fixed" else semantic_plan()
+    from pka.storage.vectors import VectorStore
     store = VectorStore(settings.qdrant_url, coll, embedder.dim)
     try:
         store.ensure(reset=args.reset)
@@ -59,6 +101,15 @@ def main():
                          "Open Docker Desktop, wait for 'Engine running', then run: docker compose up -d")
     meta = MetadataStore(settings.sqlite_path)
     if args.reset:
+        history = meta.auto_versions(coll) if args.chunker == "semantic" else []
+        if history and not args.force_reset:
+            docs = sorted({d for d, _ in history})
+            raise SystemExit(
+                f"--reset would permanently delete {len(history)} version(s) of {len(docs)} document(s) "
+                f"({', '.join(docs[:5])}{'…' if len(docs) > 5 else ''}) that you edited in place: that "
+                "history exists only in the index, not on disk.\n"
+                "Use python -m pka.sync for normal updates, or add --force-reset if you really want "
+                "to start from the files on disk.")
         meta.reset(coll)
 
     files = discover(settings.corpus_dir)
@@ -77,27 +128,13 @@ def main():
         if meta.stored_hash(doc.doc_id, doc.version, coll) == doc.sha256:
             skipped += 1
             continue
-        pairs, stats = chunk(doc)
-        if not pairs:
+        n_chunks, stats, over = ingest_document(doc, chunk, embedder, store, meta, coll)
+        if not n_chunks:
             print(f"  WARN  {path.name}: no text extracted (scanned PDF?)")
             failed += 1
             continue
-        vectors = embedder.embed([t for _, t in pairs])
-        token_counts = embedder.count_tokens_batch([t for _, t in pairs])
-        ids, payloads, rows = [], [], []
-        for (c, embed_text), n_tok in zip(pairs, token_counts):
-            over_limit += n_tok > embedder.max_tokens
-            pid = point_id(coll, doc.doc_id, doc.version, c.index)
-            ids.append(pid)
-            payloads.append({"doc_id": doc.doc_id, "version": doc.version, "section": c.section,
-                             "chunk_index": c.index, "text": c.text, "embed_text": embed_text,
-                             "doc_date": doc.doc_date, "title": doc.title})
-            rows.append({"chunk_id": pid, "chunk_index": c.index, "section": c.section,
-                         "text": c.text, "n_words": c.n_words, "n_tokens": n_tok})
-        store.delete_document(doc.doc_id, doc.version)
-        store.upsert(ids, vectors, payloads)
-        meta.save_document(doc, coll, rows)
-        total_chunks += len(pairs)
+        over_limit += over
+        total_chunks += n_chunks
         added += 1
         extra = ""
         if stats:
@@ -108,7 +145,7 @@ def main():
             extra = (" (kept whole)" if stats.single_chunk_doc else
                      f" (cuts: {stats.structural_cuts} heading, {stats.semantic_cuts} semantic, "
                      f"{stats.forced_cuts} size)")
-        print(f"  ok    {doc.doc_id} v{doc.version}: {len(pairs)} chunks{extra}")
+        print(f"  ok    {doc.doc_id} v{doc.version}: {n_chunks} chunks{extra}")
 
     docs, chunks_in_db = meta.counts(coll)
     print(f"\nIndex '{coll}': ingested {added} files ({total_chunks} chunks), "
@@ -127,6 +164,8 @@ def main():
         from pka.versioning import VersionRegistry
         print("\nBuilding version information...")
         VersionRegistry(coll, client=store.client).rebuild()
+        from pka import index_state
+        index_state.bump()
     print(f"Done in {time.perf_counter() - t0:.0f}s.")
 
 

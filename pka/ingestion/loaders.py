@@ -136,6 +136,26 @@ def load_file(path: Path) -> Document:
     )
 
 
+def file_sha(path) -> str:
+    """SHA-256 of a file's bytes (same value as Document.sha256) without parsing it."""
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for block in iter(lambda: f.read(1 << 20), b""):
+            h.update(block)
+    return h.hexdigest()
+
+
 def discover(corpus_dir: Path):
-    return sorted(p for p in Path(corpus_dir).rglob("*")
-                  if p.is_file() and p.suffix.lower() in SUPPORTED and p.name != "README.md")
+    """Supported files in the corpus folder, skipping hidden files/folders (.git, .DS_Store)
+    and editor or Office temp files (~$report.pdf, ~notes.md)."""
+    root = Path(corpus_dir)
+    out = []
+    for p in root.rglob("*"):
+        if not p.is_file() or p.suffix.lower() not in SUPPORTED or p.name == "README.md":
+            continue
+        if p.name.startswith((".", "~")):
+            continue
+        if any(part.startswith(".") for part in p.relative_to(root).parts[:-1]):
+            continue
+        out.append(p)
+    return sorted(out)
