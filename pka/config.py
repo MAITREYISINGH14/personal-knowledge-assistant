@@ -61,5 +61,12 @@ class Settings:
     reranker_model: str = os.getenv("RERANKER_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2")
     max_per_doc: int = int(os.getenv("MAX_PER_DOC", "3"))           # per document version
 
+    # Phase 4 hierarchical summaries
+    summary_collection: str = "pka_summaries"
+    summary_provider: str = os.getenv("SUMMARY_PROVIDER", "").strip().lower()  # default: LLM_PROVIDER
+    summary_model: str = os.getenv("SUMMARY_MODEL", "")
+    group_max_tokens: int = int(os.getenv("GROUP_MAX_TOKENS", "1800"))   # input per summary call
+    group_max_children: int = int(os.getenv("GROUP_MAX_CHILDREN", "8"))
+
 
 settings = Settings()

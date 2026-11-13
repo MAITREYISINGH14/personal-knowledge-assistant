@@ -12,13 +12,14 @@ SYSTEMS = {
     "hybrid": ("pka.hybrid", "HybridSystem"),
     "rerank": ("pka.hybrid", "RerankSystem"),
     "temporal": ("pka.temporal", "TemporalSystem"),
+    "summary": ("pka.summary_system", "SummarySystem"),
 }
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("question", nargs="+")
-    ap.add_argument("--system", choices=list(SYSTEMS), default="temporal")
+    ap.add_argument("--system", choices=list(SYSTEMS), default="summary")
     args = ap.parse_args()
     question = " ".join(args.question)
 
@@ -26,7 +27,14 @@ def main():
     from pka.llm import LLMError
     module, cls = SYSTEMS[args.system]
     try:
-        system = getattr(importlib.import_module(module), cls)()
+        try:
+            system = getattr(importlib.import_module(module), cls)()
+        except RuntimeError as e:
+            if args.system != "summary" or "No summaries" not in str(e):
+                raise
+            print("(No summaries built yet - answering without them. Run: python -m pka.summarize)")
+            from pka.temporal import TemporalSystem
+            system = TemporalSystem()
         result = system.answer(question)
     except LLMError as e:
         print(f"\nLLM error: {e}")
@@ -41,7 +49,8 @@ def main():
     for i, c in enumerate(result.retrieved, 1):
         where = f" | {c.section.split(' | ')[0].split(' > ')[-1][:50]}" if c.section else ""
         status = f"  [{c.meta['status']}]" if c.meta.get("status") in ("current", "superseded") else ""
-        print(f"  [{i}] {c.doc_id} v{c.version}{where}{status}  (score {c.score:.3f})")
+        kind = "  (summary)" if c.level else ""
+        print(f"  [{i}] {c.doc_id} v{c.version}{where}{status}{kind}  (score {c.score:.3f})")
 
 
 if __name__ == "__main__":

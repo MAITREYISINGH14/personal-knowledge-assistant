@@ -55,7 +55,7 @@ class TestHybridFlow(unittest.TestCase):
         s.payloads, s.ids = payloads, list(payloads)
         s.bm25 = BM25([p["text"] for p in payloads.values()])
         s.embedder = mock.Mock(embed=lambda texts, prefix="": [[0.0]])
-        s.store = mock.Mock(search=lambda vec, limit: [SimpleNamespace(id=i) for i in ["p1", "p2", "p3", "p4"]])
+        s.store = mock.Mock(search=lambda vec, limit, query_filter=None: [SimpleNamespace(id=i) for i in ["p1", "p2", "p3", "p4"]])
         s.reranker = mock.Mock(score=lambda q, ps: rerank_scores(ps)) if rerank_scores else None
         return s
 

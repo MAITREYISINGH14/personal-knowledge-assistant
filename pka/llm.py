@@ -180,16 +180,33 @@ def _save_pinned(provider, model):
 _resolved: dict = {}
 
 
-def resolve_model(provider: str) -> str:
-    """The model to use for a preset provider: LLM_MODEL, else the pinned one, else probe."""
-    if settings.llm_model:
-        return settings.llm_model
-    if provider in _resolved:
-        return _resolved[provider]
+SUMMARY_CANDIDATES = {   # summaries run on a separate model so they don't use up the answer quota
+    "groq": ["openai/gpt-oss-20b", "openai/gpt-oss-120b", "llama-3.1-8b-instant"],
+    "gemini": ["gemini-2.5-flash-lite", "gemini-2.5-flash"],
+}
+
+
+def provider_for(purpose: str = "answer") -> str:
+    if purpose == "summary" and settings.summary_provider:
+        return settings.summary_provider
+    return settings.llm_provider
+
+
+def resolve_model(provider: str, purpose: str = "answer") -> str:
+    """The model for a preset provider and purpose: an explicit setting, else the pinned
+    one, else the first candidate this key can actually use (probed once, then remembered)."""
+    explicit = settings.summary_model if purpose == "summary" else settings.llm_model
+    if explicit:
+        return explicit
+    pin_key = provider if purpose == "answer" else f"{provider}:{purpose}"
+    if pin_key in _resolved:
+        return _resolved[pin_key]
     base_url, key_var, candidates = PRESETS[provider]
-    pinned = _load_pinned(provider)
+    if purpose == "summary":
+        candidates = SUMMARY_CANDIDATES.get(provider, candidates)
+    pinned = _load_pinned(pin_key)
     if pinned:
-        _resolved[provider] = pinned
+        _resolved[pin_key] = pinned
         return pinned
     api_key = os.getenv(key_var, "")
     tried = []
@@ -199,41 +216,50 @@ def resolve_model(provider: str) -> str:
         except ModelUnavailable:
             tried.append(model)
             continue
-        print(f"  Using {provider} model: {model} (remembered in {MODEL_CACHE.name})")
-        _save_pinned(provider, model)
-        _resolved[provider] = model
+        label = "summaries" if purpose == "summary" else "answers"
+        print(f"  Using {provider} model for {label}: {model} (remembered in {MODEL_CACHE.name})")
+        _save_pinned(pin_key, model)
+        _resolved[pin_key] = model
         return model
     raise LLMError(f"None of these {provider} models are available to your key: {tried}. "
-                   "Set LLM_MODEL in .env to one listed in your provider console.")
+                   "Set LLM_MODEL (or SUMMARY_MODEL) in .env to one listed in your provider console.")
 
 
-def active_model() -> str:
-    p = settings.llm_provider
+def _forget_pin(pin_key: str):
+    _resolved.pop(pin_key, None)
+    try:
+        import json as _json
+        data = _json.loads(MODEL_CACHE.read_text())
+        data.pop(pin_key, None)
+        MODEL_CACHE.write_text(_json.dumps(data, indent=2))
+    except (OSError, ValueError):
+        pass
+
+
+def active_model(purpose: str = "answer") -> str:
+    p = provider_for(purpose)
     if p in PRESETS:
-        return resolve_model(p)
+        return resolve_model(p, purpose)
     return {"anthropic": settings.answer_model, "ollama": settings.ollama_model,
             "openai_compatible": settings.llm_model}.get(p, "none")
 
 
 # ---------------------------------------------------------------- public API
-def chat(system: str, user: str, max_tokens: int = 600) -> str:
-    provider = settings.llm_provider
+def chat(system: str, user: str, max_tokens: int = 600, purpose: str = "answer") -> str:
+    provider = provider_for(purpose)
     if provider in PRESETS:
         base_url, key_var, _ = PRESETS[provider]
-        model = resolve_model(provider)
+        model = resolve_model(provider, purpose)
         try:
             return _openai_chat(base_url, os.getenv(key_var, ""), model, system, user, max_tokens)
         except ModelUnavailable:
-            if settings.llm_model:
-                raise LLMError(f"LLM_MODEL={model} isn't available to your key. "
+            explicit = settings.summary_model if purpose == "summary" else settings.llm_model
+            if explicit:
+                raise LLMError(f"Model {model} isn't available to your key. "
                                "Pick another from your provider console.")
-            _resolved.pop(provider, None)               # pinned model withdrawn: pick again
-            try:
-                MODEL_CACHE.unlink()
-            except OSError:
-                pass
+            _forget_pin(provider if purpose == "answer" else f"{provider}:{purpose}")
             print(f"  {model} is no longer available; choosing another model.")
-            model = resolve_model(provider)
+            model = resolve_model(provider, purpose)
             return _openai_chat(base_url, os.getenv(key_var, ""), model, system, user, max_tokens)
 
     if provider == "openai_compatible":
@@ -275,6 +301,8 @@ def format_context(chunks) -> str:
     parts = []
     for i, c in enumerate(chunks, 1):
         label = f"{c.doc_id} v{c.version}" + (f" | {c.section.split(' | ')[0]}" if c.section else "")
+        if getattr(c, "level", 0):
+            label += f" | summary, level {c.level}"
         meta = getattr(c, "meta", None) or {}
         if meta.get("in_force"):
             label += f" | {meta['in_force']}"

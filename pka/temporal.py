@@ -71,7 +71,8 @@ class TemporalSystem(RerankSystem):
     def _to_chunks(self, ranked):
         return [RetrievedChunk(doc_id=self.payloads[pid]["doc_id"], text=self.payloads[pid]["text"],
                                section=self.payloads[pid].get("section", ""),
-                               version=self.payloads[pid].get("version"), level=0, score=score,
+                               version=self.payloads[pid].get("version"),
+                               level=self.payloads[pid].get("level", 0), score=score,
                                meta=self._meta(pid))
                 for pid, score in ranked]
 
@@ -102,8 +103,7 @@ class TemporalSystem(RerankSystem):
         if scope and scope.kind == "as_of" and scope.phrase and scope.phrase != "as_of parameter":
             question = " ".join(question.replace(scope.phrase, " ").split())
         vec = self.embedder.embed([question], prefix=self.query_prefix)[0]
-        dense = [str(p.id) for p in self.store.search(vec, limit=self.pool,
-                                                      query_filter=self._date_filter(d))]
+        dense = self.dense_ids(vec, self.pool, query_filter=self._date_filter(d))
         keyword = [self.ids[i] for i, _ in self.bm25.search(question, self.pool * 4)
                    if self._valid(self.ids[i], d)][:self.pool]
         return self._to_chunks(self._rank(question, rrf([dense, keyword])[:self.pool]))

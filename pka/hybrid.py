@@ -47,10 +47,14 @@ class HybridSystem(SemanticSystem):
         p = self.payloads[pid]
         return p.get("embed_text") or p["text"]
 
+    def dense_ids(self, vec, limit: int, query_filter=None):
+        """Ids of the nearest chunks by embedding. Overridden to search several indexes."""
+        return [str(p.id) for p in self.store.search(vec, limit=limit, query_filter=query_filter)]
+
     def candidates(self, question: str):
         """Dense and keyword results merged with RRF: [(id, fused score)], best first."""
         vec = self.embedder.embed([question], prefix=self.query_prefix)[0]
-        dense = [str(p.id) for p in self.store.search(vec, limit=self.pool)]
+        dense = self.dense_ids(vec, self.pool)
         keyword = [self.ids[i] for i, _ in self.bm25.search(question, self.pool)]
         return rrf([dense, keyword])[:self.pool]
 
@@ -65,7 +69,8 @@ class HybridSystem(SemanticSystem):
                         k=self.k, max_per_group=self.max_per_doc)
         return [RetrievedChunk(doc_id=self.payloads[pid]["doc_id"], text=self.payloads[pid]["text"],
                                section=self.payloads[pid].get("section", ""),
-                               version=self.payloads[pid].get("version"), level=0, score=score)
+                               version=self.payloads[pid].get("version"),
+                               level=self.payloads[pid].get("level", 0), score=score)
                 for pid, score in top]
 
 

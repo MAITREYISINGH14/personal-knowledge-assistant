@@ -133,6 +133,8 @@ class TestRegistry(unittest.TestCase):
             log = reg.change_log("rent")
             self.assertIn("v1 (dated 2025-12-15) to v2 (dated 2026-11-01)", log)
             self.assertIn('"₹28,000." → "₹30,240."', log)
+            reg.conn.close()
+            meta.conn.close()
 
 
 class TestTemporalRetrieval(unittest.TestCase):
