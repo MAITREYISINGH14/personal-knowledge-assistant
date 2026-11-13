@@ -27,6 +27,10 @@ from pka.ingestion.loaders import VERSION_RE, discover, file_sha, load_file, par
 from pka.storage.metadata import MetadataStore
 
 
+NO_TEXT = ("no text could be extracted: probably a scanned PDF (images of pages). Export it with "
+           "text recognition (OCR), e.g. from Preview or a scanner app, and save that copy instead")
+
+
 class SyncError(RuntimeError):
     """Sync can't run at all (e.g. Qdrant is down)."""
 
@@ -163,6 +167,9 @@ class Syncer:
 
         def ingest(doc, effective=None):
             n, _stats, _over = ingest_document(doc, chunk, embedder, store, meta, coll, effective)
+            if n and getattr(doc, "empty_pages", 0):
+                rep.warnings.append(f"{doc.path.name}: {doc.empty_pages} of {doc.pages} pages have no "
+                                    "readable text (probably scanned images), so they can't be searched")
             return n
 
         # 2a. Explicit versions: new -> add; changed -> overwrite that version.
@@ -174,7 +181,7 @@ class Syncer:
                     rep.unchanged += 1
                     continue
                 if ingest(load_file(path)) == 0:
-                    rep.failed.append((path.name, "no text could be extracted (scanned PDF?)"))
+                    rep.failed.append((path.name, NO_TEXT))
                     continue
                 if stored is None:
                     rep.added.append((doc_id, ver, ""))
@@ -195,14 +202,14 @@ class Syncer:
                 doc = load_file(path)
                 if latest is None:
                     if ingest(doc) == 0:
-                        rep.failed.append((path.name, "no text could be extracted (scanned PDF?)"))
+                        rep.failed.append((path.name, NO_TEXT))
                     else:
                         rep.added.append((doc_id, doc.version, ""))
                     continue
                 doc.version, doc.versioned = latest + 1, True
                 effective = self._edit_date(doc, meta.effective_of(doc_id, latest))
                 if ingest(doc, effective) == 0:
-                    rep.failed.append((path.name, "no text could be extracted (scanned PDF?)"))
+                    rep.failed.append((path.name, NO_TEXT))
                 else:
                     rep.versioned.append((doc_id, doc.version,
                                           f"edited; v{latest} kept as history, v{doc.version} dated {effective}"))
@@ -239,12 +246,30 @@ class Syncer:
             rep.summaries = self._build_summaries(summaries_max_calls, rep)
         rep.pending = self._pending(rep)
 
+        self._record(rep, coll)
         if rep.changed or rep.summaries:
             index_state.bump(self._state_path)       # tell a running app to reload
         rep.seconds = time.perf_counter() - t0
         return rep
 
     # ------------------------------------------------------------------ helpers
+    def _record(self, rep, coll):
+        """Write this sync's actions to the permanent history (sync_events)."""
+        events = [("added", d, v, None, n) for d, v, n in rep.added]
+        events += [("new_version", d, v, None, n) for d, v, n in rep.versioned]
+        events += [("updated", d, v, None, n) for d, v, n in rep.updated]
+        events += [("removed", d, v, None, n) for d, v, n in rep.removed]
+        for name, why in rep.failed:
+            last = self._meta.conn.execute(
+                "SELECT note FROM sync_events WHERE collection=? AND kind='failed' AND file=? "
+                "ORDER BY id DESC LIMIT 1", (coll, name)).fetchone()
+            if not last or last[0] != why:          # only new or different problems
+                events.append(("failed", None, None, name, why))
+        try:
+            self._meta.log_events(coll, events)
+        except Exception as e:          # history is important but must never block a sync
+            rep.warnings.append(f"Could not record sync history: {e}")
+
     @staticmethod
     def _edit_date(doc, previous: str):
         """Date from which an edited version applies. Uses the 'Last updated' date inside the

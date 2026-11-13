@@ -29,6 +29,17 @@ CREATE TABLE IF NOT EXISTS chunks (
     n_tokens    INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_chunks_doc ON chunks (collection, doc_id, version);
+CREATE TABLE IF NOT EXISTS sync_events (  -- permanent history of what each sync did
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    at         TEXT NOT NULL,
+    collection TEXT NOT NULL,
+    kind       TEXT NOT NULL,           -- added | new_version | updated | removed | failed
+    doc_id     TEXT,
+    version    INTEGER,
+    file       TEXT,
+    note       TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_events_doc ON sync_events (collection, doc_id);
 CREATE TABLE IF NOT EXISTS ingested (     -- what each index was built from
     collection TEXT NOT NULL,
     doc_id     TEXT NOT NULL,
@@ -136,3 +147,25 @@ class MetadataStore:
             if not left:      # no other index (e.g. the baseline) still uses this document
                 self.conn.execute("DELETE FROM documents WHERE doc_id=? AND version=?",
                                   (doc_id, version))
+
+    # ------------------------------------------------------------------ sync history (Phase 7)
+    def log_events(self, collection: str, events: list, at: str = None):
+        """events: [(kind, doc_id, version, file, note)]. Kept forever, so removals stay explainable."""
+        if not events:
+            return
+        at = at or datetime.now(timezone.utc).isoformat(timespec="seconds")
+        with self.conn:
+            self.conn.executemany(
+                "INSERT INTO sync_events (at, collection, kind, doc_id, version, file, note) "
+                "VALUES (?,?,?,?,?,?,?)", [(at, collection, *e) for e in events])
+
+    def events(self, collection: str, doc_id: str = None, limit: int = 50):
+        sql = "SELECT at, kind, doc_id, version, file, note FROM sync_events WHERE collection=?"
+        params = [collection]
+        if doc_id is not None:
+            sql += " AND doc_id=?"
+            params.append(doc_id)
+        sql += " ORDER BY id DESC LIMIT ?"
+        params.append(limit)
+        return [dict(zip(("at", "kind", "doc_id", "version", "file", "note"), r))
+                for r in self.conn.execute(sql, params)]

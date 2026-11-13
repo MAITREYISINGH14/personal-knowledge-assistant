@@ -33,6 +33,8 @@ class Document:
     file_mtime: str
     blocks: list = field(default_factory=list)
     versioned: bool = False        # file name carries a __vN suffix
+    pages: int = 0                 # PDFs: total pages
+    empty_pages: int = 0           # PDFs: pages with no extractable text (usually scanned images)
 
     @property
     def text(self) -> str:
@@ -97,9 +99,10 @@ def parse_pdf(path: Path):
         import pymupdf
     except ImportError:          # older PyMuPDF releases
         import fitz as pymupdf
-    blocks, title = [], ""
+    blocks, title, empty = [], "", 0
     with pymupdf.open(path) as pdf:
         title = (pdf.metadata or {}).get("title") or ""
+        pages = len(pdf)
         for i, page in enumerate(pdf, 1):
             text = page.get_text("text")
             text = re.sub(r"-\n(?=[a-z])", "", text)           # re-join hyphenated words
@@ -107,7 +110,9 @@ def parse_pdf(path: Path):
             text = _clean(text)
             if text:
                 blocks.append(Block(text, f"p.{i}"))
-    return blocks, title
+            else:
+                empty += 1
+    return blocks, title, pages, empty
 
 
 def load_file(path: Path) -> Document:
@@ -115,7 +120,7 @@ def load_file(path: Path) -> Document:
     data = path.read_bytes()
     suffix = path.suffix.lower()
     if suffix == ".pdf":
-        blocks, title = parse_pdf(path)
+        blocks, title, pages, empty = parse_pdf(path)
         header = blocks[0].text if blocks else ""
     else:
         raw = data.decode("utf-8", errors="replace")
@@ -127,13 +132,16 @@ def load_file(path: Path) -> Document:
                 title = first
     doc_id, version = parse_name(path.stem)
     mtime = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc).isoformat()
-    return Document(
+    doc = Document(
         doc_id=doc_id, version=version, path=path,
         sha256=hashlib.sha256(data).hexdigest(),
         title=title or doc_id.replace("_", " "),
         doc_date=parse_doc_date(header), file_mtime=mtime, blocks=blocks,
         versioned=bool(VERSION_RE.match(path.stem)),
     )
+    if suffix == ".pdf":
+        doc.pages, doc.empty_pages = pages, empty
+    return doc
 
 
 def file_sha(path) -> str:

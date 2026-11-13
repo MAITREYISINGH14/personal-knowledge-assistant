@@ -106,6 +106,17 @@ def span_label(sections) -> str:
     return names[0] if len(names) == 1 else f"{names[0]} … {names[-1]}"
 
 
+def span_phrase(sections) -> str:
+    """Wording for prompts. span_label's 'A … B' was read as a title ('Part 1, titled B')."""
+    label = span_label(sections)
+    if label.startswith("page") or label == "whole text":
+        return label
+    if " … " in label:
+        a, b = label.split(" … ", 1)
+        return f'the sections from "{a}" to "{b}"'
+    return f'the section "{label}"'
+
+
 def plan_tree(doc_id: str, version: int, title: str, chunks, max_tokens: int, max_children: int):
     """chunks: dicts with id, text, section, n_tokens (in document order).
     Returns the summary nodes, bottom-up (level 1 first). Empty for single-chunk documents,
@@ -133,12 +144,12 @@ def plan_tree(doc_id: str, version: int, title: str, chunks, max_tokens: int, ma
 
 
 def build_prompt(node: Node, title: str) -> str:
-    span = span_label(node.sections)
+    span = span_phrase(node.sections)
     if node.level == 1:
         items = "\n\n".join(f"[{i}] {c.text}" for i, c in enumerate(node.children, 1))
         kind = "Passages"
     else:
-        items = "\n\n".join(f"Part {i} ({span_label(c.sections)}): {c.text}"
+        items = "\n\n".join(f"Part {i}, covering {span_phrase(c.sections)}: {c.text}"
                             for i, c in enumerate(node.children, 1))
         kind = "Summaries of its parts"
     if node.role == "root":

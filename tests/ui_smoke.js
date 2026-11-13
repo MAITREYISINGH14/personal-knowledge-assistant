@@ -21,7 +21,13 @@ class FakeEl extends Node_ {
   }
   get childNodes() { return this.children; }
   get firstChild() { return this.children[0] || null; }
-  append(...kids) { kids.forEach(k => this.children.push(typeof k === "string" ? new FakeText(k) : k)); }
+  append(...kids) {        // browsers would print a list as "[object HTMLDivElement]": fail loudly instead
+    kids.forEach(k => {
+      if (typeof k === "string") this.children.push(new FakeText(k));
+      else if (k instanceof Node_) this.children.push(k);
+      else throw new Error("append() was given " + (Array.isArray(k) ? "an array" : typeof k) + " instead of an element");
+    });
+  }
   appendChild(k) { this.children.push(k); return k; }
   removeChild(k) { this.children.splice(this.children.indexOf(k), 1); return k; }
   setAttribute(k, v) { this.attrs[k] = v; }
@@ -65,11 +71,12 @@ const fetch = async (path, opts) => {
   return {ok: true, status: 200, json: async () => r.body};
 };
 const ctx = vm.createContext({document, fetch, Node: Node_, alert: () => {}, setTimeout: () => 0, clearTimeout: () => {},
-  console, encodeURIComponent, Date, parseInt, Object, Set, JSON, Array, String, Math, isNaN});
+  setImmediate, Promise, console, encodeURIComponent, Date, parseInt, Object, Set, JSON, Array, String, Math, isNaN});
 
 const status = {ready: true, problem: "", system: "summary", documents: 26, versions: 30, chunks: 412, summaries: 150,
   pending: {docs_total: 19, docs_pending: 1, calls_needed: 164}, syncing: false, watching: true,
   last_sync: {at: "2026-11-13T10:00:00", summary: "1 added, 0 new version(s)", warnings: [], failed: []},
+  last_change: {at: "2026-11-13T09:55:00", kind: "new_version", doc_id: "demo_trip", version: 2, note: "edited"},
   last_sync_error: "", llm: "groq", corpus_dir: "/x", server_time: "2026-11-13T10:05:00"};
 const reply = {answer: "Your rent is **₹30,240**[1] <img src=x onerror=alert(1)> see [2] and [7].", error: "", time_frame: "current (today, 2026-11-13)",
   sources: [
@@ -78,6 +85,8 @@ const reply = {answer: "Your rent is **₹30,240**[1] <img src=x onerror=alert(1
 const detail = {doc_id: "rental_agreement", title: "Leave and Licence Agreement", versions: [
   {version: 1, from: "2025-12-15", until: "2026-11-01", status: "superseded", chunks: 11, auto: false, summary: {nodes: 3, has_overview: true}},
   {version: 2, from: "2026-11-01", until: null, status: "current", chunks: 11, auto: true, summary: null}],
+  history: [{at: "2026-11-13T09:55:00", kind: "new_version", doc_id: "rental_agreement", version: 2, note: "edited"}],
+  removed: false,
   changes: [{from: 1, to: 2, kind: "modified", section: "4. Licence Fee", detail: "₹28,000 → ₹30,240"},
             {from: 1, to: 2, kind: "removed", section: "7. Parking", detail: "One covered parking slot"}]};
 
@@ -86,13 +95,20 @@ const test = `(async () => {
   routes["/api/documents/rental_agreement"] = {body: DETAIL};
   routes["/api/documents/rental_agreement/chunks"] = {body: {doc_id: "rental_agreement", version: 2, chunks: [{index: 0, section: "S", heading: "4. Licence Fee", tokens: 50, text: "Chunk text"}], summaries: [{level: 2, part: 1, overview: true, span: "all", text: "Overview text"}]}};
   routes["/api/ask"] = {body: REPLY}; routes["/api/sync"] = {body: {started: true}};
+  routes["/api/activity"] = {body: [
+    {at: "2026-11-13T09:55:00", kind: "removed", doc_id: "demo_trip", version: 1, file: null, note: "file no longer on disk"},
+    {at: "2026-11-13T09:50:00", kind: "failed", doc_id: null, version: null, file: "scan.pdf", note: "no text"}]};
+  routes["/api/documents/demo_trip"] = {body: {doc_id: "demo_trip", title: "demo_trip", removed: true, versions: [], changes: [],
+    history: [{at: "2026-11-13T09:55:00", kind: "removed", doc_id: "demo_trip", version: 1, note: "file no longer on disk"},
+              {at: "2026-11-13T09:40:00", kind: "added", doc_id: "demo_trip", version: 1, note: ""}]}};
 
   await refreshStatus();
   const pills = T.textOf($("pills"));
   T.assert(pills.includes("26 documents"), "document count shown");
   T.assert(pills.includes("Summaries 18/19"), "summary progress shown");
   T.assert(pills.includes("Watching folder"), "watching shown");
-  T.assert(pills.includes("5 min ago"), "sync age shown");
+  T.assert(pills.includes("Checked 5 min ago"), "check age shown");
+  T.assert(pills.includes("Last change 10 min ago: new version of demo_trip (v2)"), "last change shown");
 
   renderMessages();
   T.assert(T.find($("messages"), n => n.tag === "button").length === 3, "three example chips");
@@ -118,9 +134,17 @@ const test = `(async () => {
   T.assert($("src-2").classList.contains("flash"), "clicking a citation highlights its source card");
 
   await loadDocs(); T.assert(T.textOf($("doclist")).includes("rental_agreement"), "document list");
+  await new Promise(r => setImmediate(r));
+  const act = T.textOf($("docdetail"));
+  T.assert(act.includes("Recent activity") && act.includes("demo_trip v1 removed") && act.includes("scan.pdf could not be read"),
+    "activity feed lists removals and failures");
+  const link = T.find($("docdetail"), n => n.className === "link")[0];
+  link.listeners.click[0](); await new Promise(r => setImmediate(r)); await new Promise(r => setImmediate(r));
+  const gone = T.textOf($("docdetail"));
+  T.assert(gone.includes("no longer in your folder") && gone.includes("demo_trip v1 added"), "removed document shows its history");
   await openDocument("rental_agreement");
   const d = T.textOf($("docdetail"));
-  for (const want of ["Versions", "v2 (from an edit)", "overview + parts", "What changed", "v1 → v2", "4. Licence Fee: ₹28,000 → ₹30,240", "removed", "Chunks", "Chunk text", "Document overview"])
+  for (const want of ["Versions", "v2 (from an edit)", "overview + parts", "What changed", "v1 → v2", "4. Licence Fee: ₹28,000 → ₹30,240", "removed", "Chunks", "Chunk text", "Document overview", "History", "new version of rental_agreement (v2)"])
     T.assert(d.includes(want), "document detail has: " + want);
   state.boundaries = true; await openDocument("rental_agreement", 2, true);
   T.assert(T.textOf($("docdetail")).includes("chunk 1 · 50 tokens · 4. Licence Fee"), "boundary labels");

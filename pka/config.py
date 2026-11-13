@@ -68,5 +68,8 @@ class Settings:
     group_max_tokens: int = int(os.getenv("GROUP_MAX_TOKENS", "1800"))   # input per summary call
     group_max_children: int = int(os.getenv("GROUP_MAX_CHILDREN", "8"))
 
+    # Phase 7: optional query rewriting (one small API call per new question; see pka/query_rewrite.py)
+    query_rewrite: bool = os.getenv("QUERY_REWRITE", "").strip().lower() in ("1", "true", "on", "yes")
+
 
 settings = Settings()

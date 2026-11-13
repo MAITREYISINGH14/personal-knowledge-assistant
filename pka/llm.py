@@ -38,7 +38,7 @@ PRESETS = {
         "llama-3.3-70b-versatile", "openai/gpt-oss-120b", "qwen/qwen3.8-27b",
         "openai/gpt-oss-20b", "llama-3.1-8b-instant"]),
     "gemini": ("https://generativelanguage.googleapis.com/v1beta/openai", "GEMINI_API_KEY", [
-        "gemini-2.5-flash", "gemini-2.5-flash-lite"]),
+        "gemini-3.8-flash", "gemini-3.5-flash", "gemini-2.5-flash", "gemini-2.5-flash-lite"]),
 }
 MODEL_CACHE = ROOT / "data" / "llm_model.json"
 USER_AGENT = "pka-knowledge-assistant/1.0"   # Cloudflare blocks Python's default agent (error 1010)
@@ -185,7 +185,7 @@ _resolved: dict = {}
 
 SUMMARY_CANDIDATES = {   # summaries run on a separate model so they don't use up the answer quota
     "groq": ["openai/gpt-oss-20b", "openai/gpt-oss-120b", "llama-3.1-8b-instant"],
-    "gemini": ["gemini-2.5-flash-lite", "gemini-2.5-flash"],
+    "gemini": ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-2.5-flash-lite", "gemini-2.5-flash"],
 }
 
 

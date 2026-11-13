@@ -53,6 +53,10 @@ def create_app(assistant=None) -> FastAPI:
     def ask_legacy(req: AskRequest):
         return ask(req)
 
+    @app.get("/api/activity")
+    def activity(limit: int = 50):
+        return assistant.activity(limit=max(1, min(limit, 500)))
+
     @app.get("/api/documents")
     def documents():
         return assistant.documents()
@@ -70,6 +74,8 @@ def create_app(assistant=None) -> FastAPI:
             found = assistant.document(doc_id)
             if not found:
                 raise HTTPException(status_code=404, detail=f"No document called '{doc_id}'.")
+            if not found["versions"]:
+                raise HTTPException(status_code=404, detail=f"'{doc_id}' was removed.")
             version = found["versions"][-1]["version"]
         return assistant.chunks(doc_id, version)
 

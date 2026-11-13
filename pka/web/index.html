@@ -80,6 +80,12 @@ th,td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line)}th{col
 select{font:inherit;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:2px 6px}
 details{margin:6px 0;border:1px solid var(--line);border-radius:8px;padding:6px 10px}summary{cursor:pointer;font-size:13.5px}
 .muted{color:var(--muted)}
+.event{display:grid;grid-template-columns:150px 100px minmax(0,1fr);gap:8px;padding:5px 0;border-bottom:1px solid var(--line);font-size:13.5px}
+.event .when{color:var(--muted)}
+.kind.new_version{color:var(--accent)}.kind.updated{color:var(--warn)}.kind.failed{color:var(--bad)}
+.link{border:none;background:none;padding:0;color:var(--accent);font:inherit;text-align:left}
+.removed-note{padding:8px 12px;border-radius:8px;background:var(--chip);color:var(--warn);margin:8px 0}
+@media (max-width:860px){.event{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -154,6 +160,17 @@ function timeAgo(iso, nowMs) {
   if (s < 86400) return Math.round(s / 3600) + " h ago";
   return Math.round(s / 86400) + " d ago";
 }
+function describeEvent(e) {
+  const v = e.version ? " v" + e.version : "";
+  switch (e.kind) {
+    case "added": return `${e.doc_id}${v} added`;
+    case "new_version": return `new version of ${e.doc_id} (${v.trim()})`;
+    case "updated": return `${e.doc_id}${v} updated in place`;
+    case "removed": return `${e.doc_id}${v} removed`;
+    case "failed": return `${e.file || "a file"} could not be read`;
+    default: return `${e.kind} ${e.doc_id || e.file || ""}`.trim();
+  }
+}
 function groupChanges(changes) {
   const groups = [];
   for (const c of changes) {
@@ -209,10 +226,12 @@ function renderStatus() {
       title: p.docs_pending ? "Run: python -m pka.summarize" : ""},
       p.docs_pending ? `Summaries ${done}/${p.docs_total} documents · ~${p.calls_needed} calls left` : "Summaries complete"));
   }
+  const now = Date.parse(s.server_time);
+  if (s.last_change) pills.append(h("span", {class: "pill", title: s.last_change.note || ""},
+    `Last change ${timeAgo(s.last_change.at, now)}: ${describeEvent(s.last_change)}`));
   if (s.syncing) pills.append(h("span", {class: "pill warn"}, "Syncing…"));
-  else if (s.last_sync) pills.append(h("span", {class: "pill", title: s.last_sync.summary},
-    `Last sync ${timeAgo(s.last_sync.at, Date.parse(s.server_time))}: ${s.last_sync.summary}`));
-  else pills.append(h("span", {class: "pill"}, "No sync yet"));
+  else pills.append(h("span", {class: "pill", title: s.last_sync ? "Last check: " + s.last_sync.summary : ""},
+    s.last_sync ? `Checked ${timeAgo(s.last_sync.at, now)}` : "Not checked yet"));
   if (s.watching) pills.append(h("span", {class: "pill good", title: s.corpus_dir}, "Watching folder"));
   pills.append(h("span", {class: "pill"}, `${s.system || "loading"} · answers: ${s.llm}`));
   $("syncBtn").disabled = s.syncing;
@@ -223,7 +242,8 @@ function renderStatus() {
   banner.style.display = note ? "block" : "none";
   banner.style.color = (!s.ready && !s.problem && !s.last_sync_error) ? "var(--muted)" : "var(--bad)";
   banner.textContent = note;
-  const fingerprint = [s.documents, s.versions, s.chunks, s.summaries, s.last_sync && s.last_sync.at].join(":");
+  const fingerprint = [s.documents, s.versions, s.chunks, s.summaries, s.last_sync && s.last_sync.at,
+                       s.last_change && s.last_change.at].join(":");
   if (fingerprint !== state.seen) {
     const first = state.seen === "";
     state.seen = fingerprint;
@@ -333,10 +353,33 @@ async function loadDocs() {
   try { state.docs = (await api("/api/documents")); } catch (e) { state.docs = []; }
   renderDocList();
   if (state.openDoc) openDocument(state.openDoc, state.openVersion, true);
+  else renderActivity();
 }
+function eventRow(e, clickable) {
+  const label = describeEvent(e);
+  return h("div", {class: "event"},
+    h("span", {class: "when", title: e.at}, new Date(e.at).toLocaleString()),
+    h("span", {class: "kind " + e.kind}, e.kind.replace("_", " ")),
+    h("span", {}, clickable && e.doc_id
+      ? h("button", {type: "button", class: "link", onclick: () => openDocument(e.doc_id)}, label) : label,
+      e.note ? h("span", {class: "muted"}, " · " + e.note) : null));
+}
+async function renderActivity() {
+  const box = $("docdetail");
+  let events = [];
+  try { events = await api("/api/activity?limit=40"); } catch (e) { clear(box).append(h("p", {class: "err"}, e.message)); return; }
+  if (state.openDoc) return;                       // the user opened a document meanwhile
+  clear(box).append(h("h2", {}, "Recent activity"),
+    h("p", {class: "muted"}, "Everything the folder sync did: added, new versions from edits, removals, files it couldn't read."));
+  if (!events.length) box.append(h("p", {class: "muted"}, "Nothing recorded yet. History starts with the next sync."));
+  for (const e of events) box.append(eventRow(e, true));
+}
+function showActivity() { state.openDoc = null; renderDocList(); renderActivity(); }
 function renderDocList() {
   const box = clear($("doclist")), f = $("docfilter").value.trim().toLowerCase();
   const docs = state.docs.filter(d => !f || d.doc_id.toLowerCase().includes(f) || (d.title || "").toLowerCase().includes(f));
+  box.append(h("button", {type: "button", class: "doc" + (state.openDoc ? "" : " active"), onclick: showActivity},
+    h("strong", {}, "Recent activity"), h("small", {}, "what changed in your folder")));
   if (!docs.length) box.append(h("p", {class: "muted"}, state.docs.length ? "No match." : "No documents indexed yet."));
   for (const d of docs) {
     box.append(h("button", {type: "button", class: "doc" + (d.doc_id === state.openDoc ? " active" : ""),
@@ -353,6 +396,12 @@ async function openDocument(docId, version, quiet) {
   let doc;
   try { doc = await api("/api/documents/" + encodeURIComponent(docId)); }
   catch (e) { clear(box).append(h("p", {class: "err"}, e.message)); return; }
+  if (doc.removed) {
+    clear(box).append(h("h3", {}, docId),
+      h("div", {class: "removed-note"}, "This document is no longer in your folder, so it was removed from the index. Its history:"),
+      h("h2", {}, "History"), ...doc.history.map(e => eventRow(e, false)));
+    return;
+  }
   const vs = doc.versions;
   state.openVersion = vs.some(v => v.version === version) ? version : vs[vs.length - 1].version;
   let data = {chunks: [], summaries: []};
@@ -383,6 +432,10 @@ async function openDocument(docId, version, quiet) {
   for (const c of data.chunks)
     box.append(h("div", {class: "chunk" + (state.boundaries ? " boxed" : "")},
       state.boundaries && h("span", {class: "label"}, `chunk ${c.index + 1} · ${c.tokens} tokens · ${c.heading || "no heading"}`), c.text));
+  if ((doc.history || []).length) {
+    box.append(h("h2", {style: "margin-top:16px"}, "History"));
+    for (const e of doc.history) box.append(eventRow(e, false));
+  }
   if (data.summaries.length) {
     box.append(h("h2", {style: "margin-top:16px"}, "Summaries"));
     for (const s of data.summaries)

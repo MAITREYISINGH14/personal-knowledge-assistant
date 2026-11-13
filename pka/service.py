@@ -88,7 +88,7 @@ class Assistant:
 
     def _refresh(self, gen):
         try:
-            if getattr(self._system, "name", "") == "temporal" and self._summaries_now_available(self._system):
+            if not hasattr(self._system, "summary_store") and self._summaries_now_available(self._system):
                 self._system = self._make_system()           # upgrade: summaries now exist
             else:
                 self._system.reload()
@@ -193,6 +193,13 @@ class Assistant:
             d["changes"] = changes.get(doc_id, 0)
         return list(docs.values())
 
+    def activity(self, limit: int = 50, doc_id: str = None) -> list:
+        sql = ("SELECT at, kind, doc_id, version, file, note FROM sync_events WHERE collection=?"
+               + (" AND doc_id=?" if doc_id is not None else "") + " ORDER BY id DESC LIMIT ?")
+        params = (settings.semantic_collection,) + ((doc_id,) if doc_id is not None else ()) + (limit,)
+        return [dict(zip(("at", "kind", "doc_id", "version", "file", "note"), r))
+                for r in self._rows(sql, params)]
+
     def document(self, doc_id: str) -> Optional[dict]:
         coll = settings.semantic_collection
         vers = self._rows("SELECT version, effective, valid_to FROM versions WHERE collection=? "
@@ -201,8 +208,12 @@ class Assistant:
             "SELECT d.version, d.title, d.doc_date, d.n_chunks, d.effective_date, d.file_mtime "
             "FROM documents d JOIN ingested i ON i.doc_id=d.doc_id AND i.version=d.version "
             "AND i.collection=? WHERE d.doc_id=? ORDER BY d.version", (coll, doc_id))}
+        history = self.activity(limit=100, doc_id=doc_id)
         if not info:
-            return None
+            if not history:
+                return None
+            return {"doc_id": doc_id, "title": doc_id, "removed": True, "versions": [],
+                    "changes": [], "history": history}
         timeline = {v: (eff, until) for v, eff, until in vers}
         summaries = {}
         for version, n, root in self._rows(
@@ -224,7 +235,8 @@ class Assistant:
                        "SELECT from_version, to_version, kind, old_section, new_section, detail "
                        "FROM changes WHERE collection=? AND doc_id=? ORDER BY from_version, rowid",
                        (coll, doc_id))]
-        return {"doc_id": doc_id, "title": versions[-1]["title"], "versions": versions, "changes": changes}
+        return {"doc_id": doc_id, "title": versions[-1]["title"], "removed": False,
+                "versions": versions, "changes": changes, "history": history}
 
     def chunks(self, doc_id: str, version: int) -> dict:
         rows = self._rows("SELECT chunk_index, section, n_tokens, text FROM chunks WHERE collection=? "
@@ -249,6 +261,7 @@ class Assistant:
             self._pending, self._pending_generation = self._compute_pending(), gen
         with self._state:
             last, err, syncing, watching = self.last_sync, self.last_sync_error, self.syncing, self.watching
+        changes = [e for e in self.activity(limit=20) if e["kind"] != "failed"]
         return {
             "ready": self.ready, "problem": self._system_error,
             "system": getattr(self._system, "name", None),
@@ -260,6 +273,7 @@ class Assistant:
             "pending": self._pending, "syncing": syncing, "watching": watching,
             "last_sync": ({"at": last["started"], "summary": last["one_line"], "warnings": last["warnings"],
                            "failed": last["failed"]} if last else None),
+            "last_change": changes[0] if changes else None,
             "last_sync_error": err, "llm": settings.llm_provider, "corpus_dir": str(settings.corpus_dir),
             "server_time": datetime.now().isoformat(timespec="seconds"),
         }

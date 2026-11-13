@@ -43,6 +43,11 @@ class TemporalSystem(RerankSystem):
         super().__init__(k, use_llm)
         self.registry = VersionRegistry(self.collection, client=self.store.client)
         self._scope, self._log = {}, {}
+        self.rewriter = None
+        if settings.query_rewrite:
+            from pka.query_rewrite import QueryRewriter
+            self.rewriter = QueryRewriter()
+            self.name = self.name + "_rewrite"      # keeps eval reports of both variants apart
         self._refresh_versions()
 
     def _refresh_versions(self):
@@ -110,11 +115,17 @@ class TemporalSystem(RerankSystem):
         scope = self._scope.get(question)
         if scope and scope.kind == "as_of" and scope.phrase and scope.phrase != "as_of parameter":
             question = " ".join(question.replace(scope.phrase, " ").split())
-        vec = self.embedder.embed([question], prefix=self.query_prefix)[0]
-        dense = self.dense_ids(vec, self.pool, query_filter=self._date_filter(d))
-        keyword = [self.ids[i] for i, _ in self.bm25.search(question, self.pool * 4)
-                   if self._valid(self.ids[i], d)][:self.pool]
-        return self._to_chunks(self._rank(question, rrf([dense, keyword])[:self.pool]))
+        original = question
+        queries = [question] + (getattr(self, "rewriter", None).rewrite(question)
+                                if getattr(self, "rewriter", None) else [])
+        rankings = []
+        flt = self._date_filter(d)
+        for vec, q in zip(self.embedder.embed(queries, prefix=self.query_prefix), queries):
+            rankings.append(self.dense_ids(vec, self.pool, query_filter=flt))
+            rankings.append([self.ids[i] for i, _ in self.bm25.search(q, self.pool * 4)
+                             if self._valid(self.ids[i], d)][:self.pool])
+        # The reranker always judges passages against the question as asked (minus its date).
+        return self._to_chunks(self._rank(original, rrf(rankings)[:self.pool]))
 
     def _retrieve_changes(self, question: str):
         ranked = self.candidates(question)               # unfiltered: find the document first
